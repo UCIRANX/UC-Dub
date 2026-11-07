@@ -53,6 +53,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     private var captureThread: Thread? = null
     private var dub: DubPlayer? = null
     private var overlay: SubtitleOverlay? = null
+    private var lastSource = ""
+    private var lastTranslated = ""
     private lateinit var transcriptStore: TranscriptStore
     private lateinit var transcripts: TranscriptSession
 
@@ -74,9 +76,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         store = SettingsStore(this)
         pool = ApiKeyPool(store)
         transcriptStore = TranscriptStore(this)
-        transcripts = TranscriptSession(transcriptStore) { entry ->
-            main.post { overlay?.update(entry) }
-        }
+        transcripts = TranscriptSession(transcriptStore)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -92,6 +92,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         // Each activation starts a fresh transcript history.
         transcripts.reset()
         transcriptStore.clear()
+        lastSource = ""
+        lastTranslated = ""
         AppState.connection = "connecting"
         createChannel()
         // Must run promptly after the service starts (Android 14+ rule), even if we exit early.
@@ -174,6 +176,11 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onTranscript(source: Boolean, text: String, finished: Boolean) {
         if (source) transcripts.onSource(text, finished) else transcripts.onTranslated(text, finished)
+        if (text.isBlank()) return
+        if (source) lastSource = text else lastTranslated = text
+        val s = lastSource
+        val t = lastTranslated
+        main.post { overlay?.update(s, t) }
     }
 
     override fun onClosed(reason: String, kind: FailureKind) {

@@ -5,15 +5,11 @@ import android.os.Looper
 
 /**
  * Builds sentence pairs from the streamed transcript pieces.
- * Partial text is saved to the history as it arrives, but a pair is only reported to
- * [onFinished] (for the subtitle) once the sentence is complete: both sides report it
- * finished, the text is too long, or nothing new arrives for a short pause.
+ * Saves the history: a sentence pair is written to the store once it is complete
+ * (both sides finished, too long, or a short pause). The subtitle does not use this.
  * Pieces may arrive as increments or as the full text so far; both are handled.
  */
-class TranscriptSession(
-    private val store: TranscriptStore,
-    private val onFinished: (TranscriptEntry) -> Unit
-) {
+class TranscriptSession(private val store: TranscriptStore) {
     private val source = StringBuilder()
     private val translated = StringBuilder()
     private var sourceDone = false
@@ -96,7 +92,6 @@ class TranscriptSession(
         main.removeCallbacks(pauseCommit)
         pending()?.let { entry ->
             store.append(entry)
-            onFinished(entry)
         }
         store.saveCurrent(null)
         source.clear()

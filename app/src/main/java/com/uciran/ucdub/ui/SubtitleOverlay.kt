@@ -10,7 +10,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.uciran.ucdub.data.TranscriptEntry
 
 /**
  * Floating subtitles over other apps. Each finished sentence is shown in one piece:
@@ -58,15 +57,15 @@ class SubtitleOverlay(private val context: Context) {
         }
     }
 
-    /** Shows one finished sentence, replacing the previous one. */
-    fun update(entry: TranscriptEntry) {
+    /** Replaces the shown original and translation right away, like the reference app. */
+    fun update(source: String, translated: String) {
         main.post {
             val src = sourceView ?: return@post
             val tr = translatedView ?: return@post
             main.removeCallbacks(hideLater)
-            setText(src, entry.source)
-            setText(tr, entry.translated)
-            main.postDelayed(hideLater, readTimeMs(entry))
+            setText(src, source)
+            setText(tr, translated)
+            main.postDelayed(hideLater, readTimeMs(source.length + translated.length))
         }
     }
 
@@ -83,10 +82,9 @@ class SubtitleOverlay(private val context: Context) {
         ).apply { bottomMargin = dp(2) }
     }
 
-    /** Time to keep a subtitle on screen: a bit longer for longer sentences. */
-    private fun readTimeMs(entry: TranscriptEntry): Long {
-        val chars = entry.source.length + entry.translated.length
-        return (2500L + chars * 40L).coerceIn(3000L, 8000L)
+    /** Time to keep the subtitle on screen: a bit longer for longer text. */
+    private fun readTimeMs(chars: Int): Long =
+        (2500L + chars * 40L).coerceIn(3000L, 8000L)
     }
 
     private fun hideTexts() {
