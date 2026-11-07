@@ -99,6 +99,17 @@ class MainActivity : AppCompatActivity() {
         status.text = getString(R.string.status_idle)
 
         languageButton.setOnClickListener { chooseLanguage() }
+        // Let the inner keys list scroll even when the outer page is also scrollable (portrait and landscape).
+        keysScroll.setOnTouchListener { v, _ ->
+            v.parent.requestDisallowInterceptTouchEvent(true)
+            false
+        }
+        findViewById<MaterialButton>(R.id.get_key).setOnClickListener {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.get_key_url))))
+            } catch (_: ActivityNotFoundException) {
+            }
+        }
         outputSelect.setOnClickListener { chooseOutput() }
         findViewById<MaterialButton>(R.id.add_key).setOnClickListener { addKey() }
         findViewById<MaterialButton>(R.id.telegram).setOnClickListener { openTelegram() }
@@ -409,7 +420,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val ACTIVE_STATES = setOf("connecting", "ready", "reconnecting", "waiting_keys")
-        private const val VISIBLE_KEYS = 2
+        private const val VISIBLE_KEYS = 3
         private const val KEY_ROW_DP = 40
     }
 }

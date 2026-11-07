@@ -61,4 +61,6 @@
     <string name="lower_off">کاهش صدای اصلی: خاموش</string>
     <string name="stats_format">ارسال %1$d · دوبله %2$d</string>
     <string name="language_button">زبان: %1$s</string>
+    <string name="get_key">دریافت کلید</string>
+    <string name="get_key_url">https://aistudio.google.com/app/apikey</string>
 </resources>

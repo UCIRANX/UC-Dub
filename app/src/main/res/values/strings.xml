@@ -61,4 +61,6 @@
     <string name="lower_off">Lower original: Off</string>
     <string name="stats_format">Sent %1$d · Dub %2$d</string>
     <string name="language_button">Language: %1$s</string>
+    <string name="get_key">Get key</string>
+    <string name="get_key_url">https://aistudio.google.com/app/apikey</string>
 </resources>
