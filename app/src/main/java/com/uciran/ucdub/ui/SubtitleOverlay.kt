@@ -85,7 +85,6 @@ class SubtitleOverlay(private val context: Context) {
     /** Time to keep the subtitle on screen: a bit longer for longer text. */
     private fun readTimeMs(chars: Int): Long =
         (2500L + chars * 40L).coerceIn(3000L, 8000L)
-    }
 
     private fun hideTexts() {
         sourceView?.visibility = View.GONE
