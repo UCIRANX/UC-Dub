@@ -115,6 +115,8 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     style="@style/UcDub.SectionLabel"
                     android:text="@string/language_label" />
 
@@ -126,6 +128,8 @@
                     android:minHeight="48dp" />
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     style="@style/UcDub.SectionLabel"
                     android:layout_marginTop="16dp"
                     android:text="@string/voice_label" />
@@ -155,6 +159,8 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     style="@style/UcDub.SectionLabel"
                     android:text="@string/mode_label" />
 
@@ -198,6 +204,8 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     style="@style/UcDub.SectionLabel"
                     android:text="@string/output_label" />
 
@@ -249,6 +257,8 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     style="@style/UcDub.SectionLabel"
                     android:text="@string/level_label" />
 
