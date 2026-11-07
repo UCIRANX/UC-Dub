@@ -24,6 +24,7 @@ class SubtitleOverlay(private val context: Context) {
     private var root: LinearLayout? = null
     private var sourceView: TextView? = null
     private var translatedView: TextView? = null
+    private val hideLater = Runnable { hideTexts() }
 
     fun canShow(): Boolean = Settings.canDrawOverlays(context)
 
@@ -62,8 +63,10 @@ class SubtitleOverlay(private val context: Context) {
         main.post {
             val src = sourceView ?: return@post
             val tr = translatedView ?: return@post
+            main.removeCallbacks(hideLater)
             setText(src, entry.source)
             setText(tr, entry.translated)
+            main.postDelayed(hideLater, readTimeMs(entry))
         }
     }
 
@@ -80,6 +83,17 @@ class SubtitleOverlay(private val context: Context) {
         ).apply { bottomMargin = dp(2) }
     }
 
+    /** Time to keep a subtitle on screen: a bit longer for longer sentences. */
+    private fun readTimeMs(entry: TranscriptEntry): Long {
+        val chars = entry.source.length + entry.translated.length
+        return (2500L + chars * 40L).coerceIn(3000L, 8000L)
+    }
+
+    private fun hideTexts() {
+        sourceView?.visibility = View.GONE
+        translatedView?.visibility = View.GONE
+    }
+
     private fun setText(view: TextView, value: String) {
         if (value.isBlank()) {
             view.visibility = View.GONE
@@ -93,6 +107,7 @@ class SubtitleOverlay(private val context: Context) {
 
     fun hide() {
         main.post {
+            main.removeCallbacks(hideLater)
             root?.let { windowManager.removeView(it) }
             root = null
             sourceView = null

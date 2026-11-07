@@ -117,7 +117,7 @@ class TranscriptSession(
     }
 
     companion object {
-        private const val IDLE_MS = 2500L
+        private const val IDLE_MS = 900L
         /** Longest chunk kept together; a longer piece is saved and the next one starts after it. */
         private const val MAX_CHARS = 110
     }
