@@ -1,0 +1,111 @@
+name: Extract zip and build Android APKs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Upload a .zip to the repo root and this step extracts it, removes it, and commits the sources.
+      - name: Extract uploaded zip (if any)
+        run: |
+          shopt -s nullglob
+          zips=(*.zip)
+          if [ ${#zips[@]} -eq 0 ]; then
+            echo "No zip found in repository root."
+            exit 0
+          fi
+          for z in "${zips[@]}"; do
+            echo "Extracting $z"
+            tmp=$(mktemp -d)
+            unzip -q "$z" -d "$tmp"
+            entries=("$tmp"/*)
+            # If the archive has a single top-level folder, use its contents as the project root.
+            if [ ${#entries[@]} -eq 1 ] && [ -d "${entries[0]}" ]; then
+              src="${entries[0]}"
+            else
+              src="$tmp"
+            fi
+            cp -a "$src"/. .
+            rm -rf "$tmp"
+            rm -f "$z"
+          done
+          echo "EXTRACTED=true" >> "$GITHUB_ENV"
+
+      - name: Commit extracted sources
+        if: env.EXTRACTED == 'true'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "Extract uploaded archive [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-34 build-tools;34.0.0
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Prepare signing keystore
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: bash scripts/prepare-keystore.sh
+
+      - name: Build release APKs (arm64-v8a, armeabi-v7a, universal)
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Collect APKs
+        env:
+          VERSION_TAG: v${{ github.run_number }}
+        run: |
+          mkdir -p dist
+          for f in app/build/outputs/apk/release/*-release.apk; do
+            abi=$(basename "$f" -release.apk | sed 's/^app-//')
+            cp "$f" "dist/uc-dub-${abi}-${VERSION_TAG}.apk"
+          done
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uc-dub-apks-${{ github.run_number }}
+          path: dist/*.apk
+
+      - name: Upload new keystore backup (only when generated without GH_PAT)
+        if: env.KEYSTORE_NEEDS_DOWNLOAD == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KEYSTORE-BACKUP-keep-safe
+          path: ${{ runner.temp }}/keystore-backup/release.jks
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: UC Dub v1.0.${{ github.run_number }}
+          files: dist/*.apk
