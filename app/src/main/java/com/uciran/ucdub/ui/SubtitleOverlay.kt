@@ -13,9 +13,10 @@ import android.widget.TextView
 import com.uciran.ucdub.data.TranscriptEntry
 
 /**
- * Floating subtitles over other apps. Only the text itself has a translucent background:
- * one line for the original speech and one for the translation. Each new chunk replaces
- * the previous one. Requires the "display over other apps" permission.
+ * Floating subtitles over other apps. Each finished sentence is shown in one piece:
+ * a line for the original speech and a line for the translation. Only the text has a
+ * translucent background. The subtitle is kept a little away from the left and right edges.
+ * Requires the "display over other apps" permission.
  */
 class SubtitleOverlay(private val context: Context) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
@@ -34,12 +35,11 @@ class SubtitleOverlay(private val context: Context) {
             val container = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                // No background here: empty rows are hidden, so nothing shows until there is text.
                 addView(src)
                 addView(tr)
             }
             val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                (context.resources.displayMetrics.widthPixels * SIDE_WIDTH_RATIO).toInt(),
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -47,7 +47,7 @@ class SubtitleOverlay(private val context: Context) {
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
             ).apply {
-                gravity = Gravity.BOTTOM
+                gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                 y = dp(60)
             }
             windowManager.addView(container, params)
@@ -57,14 +57,13 @@ class SubtitleOverlay(private val context: Context) {
         }
     }
 
-    /** Shows the latest chunk: the original and its translation. */
-    fun update(items: List<TranscriptEntry>) {
+    /** Shows one finished sentence, replacing the previous one. */
+    fun update(entry: TranscriptEntry) {
         main.post {
             val src = sourceView ?: return@post
             val tr = translatedView ?: return@post
-            val latest = items.lastOrNull()
-            setText(src, latest?.source.orEmpty())
-            setText(tr, latest?.translated.orEmpty())
+            setText(src, entry.source)
+            setText(tr, entry.translated)
         }
     }
 
@@ -72,7 +71,6 @@ class SubtitleOverlay(private val context: Context) {
         textSize = 16f
         setTextColor(color)
         gravity = Gravity.CENTER
-        maxLines = 3
         setBackgroundColor(0xB0000000.toInt())
         setPadding(dp(10), dp(4), dp(10), dp(4))
         visibility = View.GONE
@@ -100,5 +98,10 @@ class SubtitleOverlay(private val context: Context) {
             sourceView = null
             translatedView = null
         }
+    }
+
+    companion object {
+        /** Width of the subtitle area as a share of the screen: keeps a margin on both sides. */
+        private const val SIDE_WIDTH_RATIO = 0.84f
     }
 }

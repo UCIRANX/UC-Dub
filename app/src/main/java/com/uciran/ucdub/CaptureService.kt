@@ -74,7 +74,9 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         store = SettingsStore(this)
         pool = ApiKeyPool(store)
         transcriptStore = TranscriptStore(this)
-        transcripts = TranscriptSession(transcriptStore)
+        transcripts = TranscriptSession(transcriptStore) { entry ->
+            main.post { overlay?.update(entry) }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -172,8 +174,6 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onTranscript(source: Boolean, text: String, finished: Boolean) {
         if (source) transcripts.onSource(text, finished) else transcripts.onTranslated(text, finished)
-        val items = transcripts.snapshot()
-        main.post { overlay?.update(items) }
     }
 
     override fun onClosed(reason: String, kind: FailureKind) {

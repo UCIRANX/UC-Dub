@@ -1,35 +1,41 @@
 package com.uciran.ucdub.data
 
+import android.os.Handler
+import android.os.Looper
+
 /**
  * Builds sentence pairs from the streamed transcript pieces.
- * Every change is written to the store immediately. A pair is finished when both sides
- * report it finished, when the next sentence starts, or after a short pause.
+ * Partial text is saved to the history as it arrives, but a pair is only reported to
+ * [onFinished] (for the subtitle) once the sentence is complete: both sides report it
+ * finished, the text is too long, or nothing new arrives for a short pause.
  * Pieces may arrive as increments or as the full text so far; both are handled.
  */
-class TranscriptSession(private val store: TranscriptStore) {
+class TranscriptSession(
+    private val store: TranscriptStore,
+    private val onFinished: (TranscriptEntry) -> Unit
+) {
     private val source = StringBuilder()
     private val translated = StringBuilder()
     private var sourceDone = false
     private var translatedDone = false
     private var startedAt = 0L
-    private var lastUpdate = 0L
-    private val recent = ArrayDeque<TranscriptEntry>()
+    private val main = Handler(Looper.getMainLooper())
+    private val pauseCommit = Runnable { flushPause() }
 
     @Synchronized
     fun reset() {
+        main.removeCallbacks(pauseCommit)
         source.clear()
         translated.clear()
         sourceDone = false
         translatedDone = false
         startedAt = 0L
-        lastUpdate = 0L
-        recent.clear()
     }
 
     @Synchronized
     fun onSource(text: String, finished: Boolean) {
         if (text.isNotBlank()) {
-            if (sourceDone || isIdle()) commit()
+            if (sourceDone) commit()
             merge(source, text)
             touch()
             if (source.length > MAX_CHARS) commit()
@@ -41,7 +47,7 @@ class TranscriptSession(private val store: TranscriptStore) {
     @Synchronized
     fun onTranslated(text: String, finished: Boolean) {
         if (text.isNotBlank()) {
-            if (translatedDone || isIdle()) commit()
+            if (translatedDone) commit()
             merge(translated, text)
             touch()
             if (translated.length > MAX_CHARS) commit()
@@ -52,27 +58,31 @@ class TranscriptSession(private val store: TranscriptStore) {
 
     /** Saves whatever is still in progress (called when the session stops). */
     @Synchronized
-    fun flush() = commit()
-
-    /** Recent finished pairs followed by the sentence currently being spoken. */
-    @Synchronized
-    fun snapshot(): List<TranscriptEntry> {
-        val list = recent.toMutableList()
-        pending()?.let { list.add(it) }
-        return list
+    fun flush() {
+        main.removeCallbacks(pauseCommit)
+        commit()
     }
 
-    private fun isIdle(): Boolean =
-        pending() != null && System.currentTimeMillis() - lastUpdate > IDLE_MS
+    /** Pieces currently being spoken or translated, plus the saved history is kept in the store. */
+    @Synchronized
+    fun pendingEntry(): TranscriptEntry? = pending()
+
+    private fun flushPause() {
+        synchronized(this) { commit() }
+    }
 
     private fun touch() {
-        val now = System.currentTimeMillis()
-        if (startedAt == 0L) startedAt = now
-        lastUpdate = now
+        if (startedAt == 0L) startedAt = System.currentTimeMillis()
     }
 
     private fun afterUpdate() {
-        if (sourceDone && translatedDone) commit() else store.saveCurrent(pending())
+        if (sourceDone && translatedDone) {
+            commit()
+        } else {
+            store.saveCurrent(pending())
+            main.removeCallbacks(pauseCommit)
+            if (pending() != null) main.postDelayed(pauseCommit, IDLE_MS)
+        }
     }
 
     private fun pending(): TranscriptEntry? {
@@ -83,10 +93,10 @@ class TranscriptSession(private val store: TranscriptStore) {
     }
 
     private fun commit() {
+        main.removeCallbacks(pauseCommit)
         pending()?.let { entry ->
             store.append(entry)
-            recent.addLast(entry)
-            while (recent.size > RECENT) recent.removeFirst()
+            onFinished(entry)
         }
         store.saveCurrent(null)
         source.clear()
@@ -107,9 +117,8 @@ class TranscriptSession(private val store: TranscriptStore) {
     }
 
     companion object {
-        private const val RECENT = 30
         private const val IDLE_MS = 2500L
-        /** Longest chunk shown at once; a longer piece is saved and the next chunk replaces it. */
-        private const val MAX_CHARS = 60
+        /** Longest chunk kept together; a longer piece is saved and the next one starts after it. */
+        private const val MAX_CHARS = 110
     }
 }
