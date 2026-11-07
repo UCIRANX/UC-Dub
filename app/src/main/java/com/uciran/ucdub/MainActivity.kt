@@ -19,12 +19,14 @@ import android.widget.RadioGroup
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
 import com.uciran.ucdub.data.TranslationMode
 import com.uciran.ucdub.ui.AppState
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -83,6 +85,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        showLastCrashIfAny()
         setContentView(R.layout.activity_main)
 
         settings = SettingsStore(this)
@@ -144,6 +147,20 @@ class MainActivity : AppCompatActivity() {
             startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
             status.text = getString(R.string.status_idle)
         }
+    }
+
+    /** Shows the stack trace of the previous crash (saved by UcDubApp), then deletes it. */
+    private fun showLastCrashIfAny() {
+        val file = File(filesDir, UcDubApp.CRASH_FILE)
+        if (!file.exists()) return
+        val text = runCatching { file.readText() }.getOrDefault("")
+        file.delete()
+        if (text.isBlank()) return
+        AlertDialog.Builder(this)
+            .setTitle("کرش قبلی برنامه")
+            .setMessage(text.take(4000))
+            .setPositiveButton("باشه", null)
+            .show()
     }
 
     override fun onResume() {

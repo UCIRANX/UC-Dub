@@ -29,7 +29,13 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 removes unused code from the libraries (Material, Tink, OkHttp), which shrinks the APK.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("release")
         }
     }
