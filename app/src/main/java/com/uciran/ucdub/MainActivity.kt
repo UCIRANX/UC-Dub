@@ -27,7 +27,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
@@ -48,8 +47,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var stats: TextView
     private lateinit var hint: TextView
-    private lateinit var level: LinearProgressIndicator
-    private lateinit var levelPercent: TextView
     private lateinit var startButton: MaterialButton
     private lateinit var stopButton: MaterialButton
 
@@ -137,8 +134,6 @@ class MainActivity : AppCompatActivity() {
         status = findViewById(R.id.status)
         stats = findViewById(R.id.stats)
         hint = findViewById(R.id.hint)
-        level = findViewById(R.id.level)
-        levelPercent = findViewById(R.id.level_percent)
         startButton = findViewById(R.id.start)
         stopButton = findViewById(R.id.stop)
     }
@@ -333,10 +328,6 @@ class MainActivity : AppCompatActivity() {
         stopButton.isEnabled = active
 
         renderConnection()
-
-        val percent = (AppState.peak * 100 / 32767).coerceIn(0, 100)
-        level.setProgressCompat(percent, true)
-        levelPercent.text = "$percent٪"
 
         stats.text = getString(R.string.stats_format, AppState.sentChunks, AppState.dubChunks)
 
