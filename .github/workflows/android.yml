@@ -95,44 +95,6 @@ jobs:
           # Size check: a sudden jump usually means a new dependency pulled in a large library.
           for f in dist/*.apk; do echo "$f: $(du -h "$f" | cut -f1)"; done
 
-      # Diagnostics: install the universal APK on an emulator, launch it, and save logcat.
-      - name: Enable KVM (for the emulator)
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Launch on emulator and capture logcat
-        if: success()
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          disable-animations: true
-          script: |
-            adb logcat -c || true
-            adb install -r "$(ls dist/*universal*.apk | head -n 1)"
-            adb shell monkey -p com.uciran.ucdub -c android.intent.category.LAUNCHER 1 || true
-            sleep 25
-            adb logcat -d -v time > logcat-full.txt || true
-            grep -E "FATAL|AndroidRuntime|ucdub|UCDub" logcat-full.txt > crash.log || true
-            echo "--- crash lines ---"
-            head -n 80 crash.log || true
-            adb shell run-as com.uciran.ucdub cat files/last_crash.txt > last_crash.txt 2>/dev/null || true
-            true
-
-      - name: Upload logcat
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logcat-${{ github.run_number }}
-          path: |
-            logcat-full.txt
-            crash.log
-            last_crash.txt
-          if-no-files-found: warn
-
       - uses: actions/upload-artifact@v4
         with:
           name: uc-dub-apks-${{ github.run_number }}
