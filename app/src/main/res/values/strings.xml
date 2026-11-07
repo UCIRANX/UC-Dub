@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">UC Dub</string>
+    <string name="channel_name">Audio capture</string>
+    <string name="notif_title">UC Dub</string>
+    <string name="notif_connecting">Connecting to translation…</string>
+    <string name="notif_connected">Live translation is active</string>
+    <string name="start">Start translation</string>
+    <string name="stop">Stop</string>
+    <string name="api_key_hint">Gemini API key</string>
+    <string name="groq_key_hint">Groq API key (precise mode only)</string>
+    <string name="language_label">Target language</string>
+    <string name="voice_label">Dub voice (Tehrani and precise modes)</string>
+    <string name="mode_label">Translation style</string>
+    <string name="mode_fast">Fast translation</string>
+    <string name="mode_tehrani">Tehrani Persian (slightly slower)</string>
+    <string name="mode_precise">Precise mode (Whisper and Gemini, more delay)</string>
+    <string name="output_label">Output</string>
+    <string name="output_both">Dub and subtitles</string>
+    <string name="output_dub">Dub only</string>
+    <string name="output_subs">Subtitles only</string>
+    <string name="auto_duck">Lower original audio while dubbing</string>
+    <string name="consent_text">Audio playing on this phone is sent to Google Gemini while active. In precise mode it is also sent to Groq for speech recognition. I agree.</string>
+    <string name="overlay_permission">Allow subtitles overlay</string>
+    <string name="level_label">Input audio level</string>
+    <string name="status_idle">Idle</string>
+    <string name="status_running">Translating device audio…</string>
+    <string name="status_denied">Screen capture permission was denied</string>
+    <string name="status_no_mic">Audio recording permission is required</string>
+    <string name="status_no_key">Enter your Gemini API key</string>
+    <string name="status_no_groq">Enter your Groq API key for precise mode</string>
+    <string name="status_no_consent">Tick the consent box to start</string>
+    <string name="header_subtitle">Live translation and dubbing for your phone</string>
+</resources>

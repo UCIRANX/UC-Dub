@@ -1,0 +1,33 @@
+<resources>
+    <string name="app_name">UC Dub</string>
+    <string name="channel_name">ضبط صدا</string>
+    <string name="notif_title">UC Dub</string>
+    <string name="notif_connecting">در حال اتصال به ترجمه…</string>
+    <string name="notif_connected">ترجمه زنده فعال است</string>
+    <string name="start">شروع ترجمه</string>
+    <string name="stop">توقف</string>
+    <string name="api_key_hint">کلید API جمینای</string>
+    <string name="groq_key_hint">کلید API گروک (فقط حالت دقیق)</string>
+    <string name="language_label">زبان مقصد</string>
+    <string name="voice_label">صدای دوبله (فارسی تهرانی و حالت دقیق)</string>
+    <string name="mode_label">نوع ترجمه</string>
+    <string name="mode_fast">ترجمه سریع</string>
+    <string name="mode_tehrani">فارسی تهرانی (کمی کندتر)</string>
+    <string name="mode_precise">حالت دقیق (Whisper و Gemini، تأخیر بیشتر)</string>
+    <string name="output_label">خروجی</string>
+    <string name="output_both">دوبله و زیرنویس</string>
+    <string name="output_dub">فقط دوبله</string>
+    <string name="output_subs">فقط زیرنویس</string>
+    <string name="auto_duck">کاهش خودکار صدای اصلی هنگام دوبله</string>
+    <string name="consent_text">صدای در حال پخش در این گوشی، تا زمان فعال بودن ترجمه، برای Google Gemini فرستاده می‌شود. در حالت دقیق برای تشخیص گفتار به Groq هم فرستاده می‌شود. موافقم.</string>
+    <string name="overlay_permission">اجازه نمایش زیرنویس</string>
+    <string name="level_label">سطح صدای ورودی</string>
+    <string name="status_idle">آماده</string>
+    <string name="status_running">در حال ترجمه صدای گوشی…</string>
+    <string name="status_denied">اجازه ضبط صفحه داده نشد</string>
+    <string name="status_no_mic">اجازه ضبط صدا لازم است</string>
+    <string name="status_no_key">کلید API جمینای را وارد کنید</string>
+    <string name="status_no_groq">کلید Groq را برای حالت دقیق وارد کنید</string>
+    <string name="status_no_consent">برای شروع، تیک موافقت را بزنید</string>
+    <string name="header_subtitle">ترجمه و دوبله زنده صدای گوشی</string>
+</resources>
