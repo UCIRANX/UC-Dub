@@ -4,7 +4,9 @@ import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -24,9 +26,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.chip.ChipGroup
 import com.google.android.material.progressindicator.LinearProgressIndicator
-import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import com.uciran.ucdub.data.OutputMode
@@ -42,12 +42,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var keysCount: TextView
     private lateinit var keyInput: TextInputEditText
     private lateinit var languageDropdown: MaterialAutoCompleteTextView
-    private lateinit var outputGroup: ChipGroup
-    private lateinit var autoDuck: SwitchMaterial
+    private lateinit var outputSelect: MaterialButton
+    private lateinit var duckToggle: MaterialButton
+    private lateinit var connection: TextView
     private lateinit var status: TextView
+    private lateinit var stats: TextView
+    private lateinit var hint: TextView
     private lateinit var level: LinearProgressIndicator
     private lateinit var levelPercent: TextView
-    private lateinit var details: TextView
+    private lateinit var startButton: MaterialButton
+    private lateinit var stopButton: MaterialButton
 
     private val codes = Languages.CODES
 
@@ -65,7 +69,7 @@ class MainActivity : AppCompatActivity() {
                 val intent = Intent(this, CaptureService::class.java)
                     .putExtra(CaptureService.EXTRA_RESULT_CODE, result.resultCode)
                     .putExtra(CaptureService.EXTRA_DATA, result.data)
-                ContextCompat.startForegroundService(this, intent)
+                androidx.core.content.ContextCompat.startForegroundService(this, intent)
                 status.text = getString(R.string.status_running)
             } else {
                 status.text = getString(R.string.status_denied)
@@ -90,13 +94,16 @@ class MainActivity : AppCompatActivity() {
         settings = SettingsStore(this)
         bindViews()
         setupLanguage()
-        setupOutput()
-
-        autoDuck.isChecked = settings.autoDuck
-        autoDuck.setOnCheckedChangeListener { _, checked -> settings.autoDuck = checked }
-
+        renderOutput()
+        renderDuck()
         renderKeys()
         status.text = getString(R.string.status_idle)
+
+        outputSelect.setOnClickListener { chooseOutput() }
+        duckToggle.setOnClickListener {
+            settings.autoDuck = !settings.autoDuck
+            renderDuck()
+        }
 
         findViewById<MaterialButton>(R.id.add_key).setOnClickListener { addKey() }
         findViewById<MaterialButton>(R.id.telegram).setOnClickListener { openTelegram() }
@@ -105,8 +112,8 @@ class MainActivity : AppCompatActivity() {
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
             )
         }
-        findViewById<MaterialButton>(R.id.start).setOnClickListener { onStartClicked() }
-        findViewById<MaterialButton>(R.id.stop).setOnClickListener {
+        startButton.setOnClickListener { onStartClicked() }
+        stopButton.setOnClickListener {
             startService(Intent(this, CaptureService::class.java).setAction(CaptureService.ACTION_STOP))
             status.text = getString(R.string.status_idle)
         }
@@ -118,21 +125,23 @@ class MainActivity : AppCompatActivity() {
         keysCount = findViewById(R.id.key_count)
         keyInput = findViewById(R.id.key_input)
         languageDropdown = findViewById(R.id.language_dropdown)
-        outputGroup = findViewById(R.id.output_group)
-        autoDuck = findViewById(R.id.auto_duck)
+        outputSelect = findViewById(R.id.output_select)
+        duckToggle = findViewById(R.id.auto_duck)
+        connection = findViewById(R.id.connection)
         status = findViewById(R.id.status)
+        stats = findViewById(R.id.stats)
+        hint = findViewById(R.id.hint)
         level = findViewById(R.id.level)
         levelPercent = findViewById(R.id.level_percent)
-        details = findViewById(R.id.details)
+        startButton = findViewById(R.id.start)
+        stopButton = findViewById(R.id.stop)
     }
 
     // region Language and output
 
     private fun setupLanguage() {
         val names = codes.map { Languages.displayName(it) }
-        languageDropdown.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
-        )
+        languageDropdown.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, names))
         val initial = codes.indexOf(settings.targetLanguage).coerceAtLeast(0)
         languageDropdown.setText(names[initial], false)
         languageDropdown.setOnItemClickListener { _, _, position, _ ->
@@ -140,21 +149,42 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupOutput() {
-        outputGroup.check(
-            when (settings.output) {
-                OutputMode.BOTH -> R.id.chip_both
-                OutputMode.DUB -> R.id.chip_dub
-                OutputMode.SUBS -> R.id.chip_subs
-            }
-        )
-        outputGroup.setOnCheckedStateChangeListener { _, checkedIds ->
-            settings.output = when (checkedIds.firstOrNull()) {
-                R.id.chip_dub -> OutputMode.DUB
-                R.id.chip_subs -> OutputMode.SUBS
-                else -> OutputMode.BOTH
-            }
+    private fun outputLabel(mode: OutputMode): String = getString(
+        when (mode) {
+            OutputMode.BOTH -> R.string.output_both
+            OutputMode.DUB -> R.string.output_dub
+            OutputMode.SUBS -> R.string.output_subs
         }
+    )
+
+    private fun renderOutput() {
+        outputSelect.text = getString(R.string.output_button, outputLabel(settings.output))
+    }
+
+    private fun chooseOutput() {
+        val modes = OutputMode.values()
+        val labels = modes.map { outputLabel(it) }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.output_dialog_title)
+            .setSingleChoiceItems(labels, modes.indexOf(settings.output)) { dialog, which ->
+                settings.output = modes[which]
+                renderOutput()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** On = dark-filled button, off = light button. */
+    private fun renderDuck() {
+        val on = settings.autoDuck
+        duckToggle.text = getString(if (on) R.string.lower_on else R.string.lower_off)
+        duckToggle.backgroundTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (on) R.color.brand_primary else R.color.toggle_off)
+        )
+        duckToggle.setTextColor(
+            ContextCompat.getColor(this, if (on) R.color.brand_on_gradient else R.color.toggle_off_text)
+        )
     }
 
     // endregion
@@ -173,18 +203,20 @@ class MainActivity : AppCompatActivity() {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(4), dp(6), 0, dp(6))
+            setPadding(dp(4), dp(2), 0, dp(2))
         }
         row.addView(TextView(this).apply {
             text = "${index + 1}.  ${maskKey(key)}"
             typeface = Typeface.MONOSPACE
-            textSize = 15f
+            textSize = 13f
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         })
         row.addView(ImageButton(this).apply {
             setImageResource(R.drawable.ic_delete)
             contentDescription = getString(R.string.delete_key)
             setBackgroundResource(selectableBorderless())
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36))
             setOnClickListener { confirmDelete(key) }
         })
         return row
@@ -234,38 +266,49 @@ class MainActivity : AppCompatActivity() {
         permissionLauncher.launch(permissions.toTypedArray())
     }
 
+    private fun isActive(): Boolean = AppState.connection in ACTIVE_STATES
+
     private fun renderDiagnostics() {
+        val active = isActive()
+        // While the service is running, Start is disabled so the session can't be started twice.
+        startButton.isEnabled = !active
+        stopButton.isEnabled = active
+
+        renderConnection()
+
         val percent = (AppState.peak * 100 / 32767).coerceIn(0, 100)
         level.setProgressCompat(percent, true)
         levelPercent.text = "$percent٪"
 
-        details.text = buildString {
-            appendLine("${getString(R.string.details_connection)}: ${connectionLabel()}")
-            appendLine("${getString(R.string.details_sent)}: ${AppState.sentChunks}")
-            appendLine("${getString(R.string.details_dub)}: ${AppState.dubChunks}")
-            if (AppState.lastSource.isNotBlank()) {
-                appendLine("${getString(R.string.details_source)}: ${AppState.lastSource}")
-            }
-            if (AppState.lastTranslated.isNotBlank()) {
-                appendLine("${getString(R.string.details_translated)}: ${AppState.lastTranslated}")
-            }
-            val hint = hintText()
-            if (hint.isNotEmpty()) append("\n$hint")
-        }
+        stats.text = getString(R.string.stats_format, AppState.sentChunks, AppState.dubChunks)
+
+        val h = hintText()
+        hint.text = h
+        hint.visibility = if (h.isEmpty()) View.GONE else View.VISIBLE
     }
 
-    private fun connectionLabel(): String = when (AppState.connection) {
-        "ready" -> getString(R.string.conn_ready)
-        "connecting" -> getString(R.string.conn_connecting)
-        "reconnecting" -> getString(R.string.conn_reconnecting)
-        "waiting_keys" -> getString(R.string.conn_waiting)
-        "stopped" -> getString(R.string.conn_stopped)
-        "idle" -> getString(R.string.conn_idle)
-        else -> if (AppState.connection.startsWith("closed")) {
-            getString(R.string.conn_error)
-        } else {
-            AppState.connection
+    /** Green = connected, amber = trying to connect, red = disconnected. */
+    private fun renderConnection() {
+        val (label, color) = when (AppState.connection) {
+            "ready" -> getString(R.string.conn_ready) to R.color.status_ok
+            "connecting" -> getString(R.string.conn_connecting) to R.color.status_warn
+            "reconnecting" -> getString(R.string.conn_reconnecting) to R.color.status_warn
+            "waiting_keys" -> getString(R.string.conn_waiting) to R.color.status_warn
+            "idle" -> getString(R.string.conn_idle) to R.color.status_error
+            "stopped" -> getString(R.string.conn_stopped) to R.color.status_error
+            else -> getString(R.string.conn_error) to R.color.status_error
         }
+        val c = ContextCompat.getColor(this, color)
+        connection.text = label
+        connection.setTextColor(c)
+        connection.compoundDrawablePadding = dp(6)
+        connection.setCompoundDrawablesRelativeWithIntrinsicBounds(dot(c), null, null, null)
+    }
+
+    private fun dot(color: Int): GradientDrawable = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setSize(dp(8), dp(8))
+        setColor(color)
     }
 
     private fun hintText(): String = when {
@@ -315,5 +358,9 @@ class MainActivity : AppCompatActivity() {
             .setMessage(text.take(4000))
             .setPositiveButton("باشه", null)
             .show()
+    }
+
+    companion object {
+        private val ACTIVE_STATES = setOf("connecting", "ready", "reconnecting", "waiting_keys")
     }
 }

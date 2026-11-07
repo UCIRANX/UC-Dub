@@ -6,6 +6,11 @@
     <color name="brand_on_gradient_muted">#D9FFFFFF</color>
     <color name="glass_white">#33FFFFFF</color>
     <color name="telegram_blue">#229ED9</color>
+    <color name="status_ok">#2E7D32</color>
+    <color name="status_warn">#EF6C00</color>
+    <color name="status_error">#C62828</color>
+    <color name="toggle_off">#E4E0EE</color>
+    <color name="toggle_off_text">#1B1B1F</color>
     <!-- Kept only so the leftover drawables still link; safe to remove with them. -->
     <color name="pill_bg">#33FFFFFF</color>
     <color name="level_track">#22000000</color>

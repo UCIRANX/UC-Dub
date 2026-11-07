@@ -55,4 +55,9 @@
     <string name="details_dub">بسته‌های دوبله دریافتی</string>
     <string name="details_source">متن اصلی</string>
     <string name="details_translated">ترجمه</string>
+    <string name="output_button">خروجی: %1$s</string>
+    <string name="output_dialog_title">انتخاب خروجی</string>
+    <string name="lower_on">کاهش صدای اصلی: روشن</string>
+    <string name="lower_off">کاهش صدای اصلی: خاموش</string>
+    <string name="stats_format">ارسال %1$d · دوبله %2$d</string>
 </resources>

@@ -55,4 +55,9 @@
     <string name="details_dub">Dub packets received</string>
     <string name="details_source">Original</string>
     <string name="details_translated">Translation</string>
+    <string name="output_button">Output: %1$s</string>
+    <string name="output_dialog_title">Choose output</string>
+    <string name="lower_on">Lower original: On</string>
+    <string name="lower_off">Lower original: Off</string>
+    <string name="stats_format">Sent %1$d · Dub %2$d</string>
 </resources>
