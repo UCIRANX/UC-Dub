@@ -32,6 +32,11 @@
     <string name="start">شروع</string>
     <string name="stop">توقف</string>
     <string name="overlay_permission">اجازه نمایش زیرنویس</string>
+    <string name="show_transcripts">متن‌ها</string>
+    <string name="transcripts_title">متن‌های ذخیره‌شده</string>
+    <string name="transcripts_empty">هنوز متنی ذخیره نشده. ترجمه را شروع کنید.</string>
+    <string name="transcripts_copy_all">کپی همه</string>
+    <string name="transcripts_copied">کپی شد</string>
 
     <string name="status_idle">آماده</string>
     <string name="status_running">در حال ترجمه صدای گوشی…</string>

@@ -28,6 +28,8 @@ import com.uciran.ucdub.audio.DubPlayer
 import com.uciran.ucdub.data.ApiKeyPool
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
+import com.uciran.ucdub.data.TranscriptSession
+import com.uciran.ucdub.data.TranscriptStore
 import com.uciran.ucdub.live.FailureKind
 import com.uciran.ucdub.live.GeminiLiveClient
 import com.uciran.ucdub.ui.AppState
@@ -51,6 +53,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     private var captureThread: Thread? = null
     private var dub: DubPlayer? = null
     private var overlay: SubtitleOverlay? = null
+    private lateinit var transcriptStore: TranscriptStore
+    private lateinit var transcripts: TranscriptSession
 
     @Volatile
     private var client: GeminiLiveClient? = null
@@ -64,13 +68,13 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     /** Lower the original audio while dubbing. Always on. */
     private val autoDuck = true
     private var retryDelayMs = 1000L
-    private var lastSource = ""
-    private var lastTranslated = ""
 
     override fun onCreate() {
         super.onCreate()
         store = SettingsStore(this)
         pool = ApiKeyPool(store)
+        transcriptStore = TranscriptStore(this)
+        transcripts = TranscriptSession(transcriptStore)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -83,6 +87,9 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         if (running) return START_NOT_STICKY
 
         AppState.reset()
+        // Each activation starts a fresh transcript history.
+        transcripts.reset()
+        transcriptStore.clear()
         AppState.connection = "connecting"
         createChannel()
         // Must run promptly after the service starts (Android 14+ rule), even if we exit early.
@@ -164,13 +171,9 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     }
 
     override fun onTranscript(source: Boolean, text: String, finished: Boolean) {
-        if (text.isBlank()) return
-        if (source) lastSource = text else lastTranslated = text
-        val s = lastSource
-        val t = lastTranslated
-        AppState.lastSource = s
-        AppState.lastTranslated = t
-        main.post { overlay?.update(s, t) }
+        if (source) transcripts.onSource(text, finished) else transcripts.onTranslated(text, finished)
+        val items = transcripts.snapshot()
+        main.post { overlay?.update(items) }
     }
 
     override fun onClosed(reason: String, kind: FailureKind) {
@@ -284,6 +287,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         client = null
         dub?.release()
         dub = null
+        transcripts.flush()
         overlay?.hide()
         overlay = null
         projection?.stop()

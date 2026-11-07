@@ -32,6 +32,11 @@
     <string name="start">Start</string>
     <string name="stop">Stop</string>
     <string name="overlay_permission">Allow subtitles overlay</string>
+    <string name="show_transcripts">Transcripts</string>
+    <string name="transcripts_title">Saved transcripts</string>
+    <string name="transcripts_empty">No text yet. Start the translation to see it here.</string>
+    <string name="transcripts_copy_all">Copy all</string>
+    <string name="transcripts_copied">Copied</string>
 
     <string name="status_idle">Ready</string>
     <string name="status_running">Translating device audio…</string>

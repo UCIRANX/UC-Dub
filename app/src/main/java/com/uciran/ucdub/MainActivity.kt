@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -21,6 +23,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -30,8 +33,13 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
+import com.uciran.ucdub.data.TranscriptEntry
+import com.uciran.ucdub.data.TranscriptStore
 import com.uciran.ucdub.ui.AppState
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -110,6 +118,7 @@ class MainActivity : AppCompatActivity() {
         outputSelect.setOnClickListener { chooseOutput() }
         findViewById<MaterialButton>(R.id.add_key).setOnClickListener { addKey() }
         findViewById<MaterialButton>(R.id.telegram).setOnClickListener { openTelegram() }
+        findViewById<MaterialButton>(R.id.show_transcripts).setOnClickListener { showTranscripts() }
         findViewById<MaterialButton>(R.id.overlay_permission).setOnClickListener {
             startActivity(
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
@@ -373,6 +382,106 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.telegram_url))))
         } catch (_: ActivityNotFoundException) {
         }
+    }
+
+    // endregion
+
+    // region Transcripts
+
+    /** Every saved sentence pair of the current session, with copy-all and text selection. */
+    private fun showTranscripts() {
+        val entries = TranscriptStore(this).readAll()
+        val sheet = BottomSheetDialog(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(16))
+        }
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(TextView(this).apply {
+            text = getString(R.string.transcripts_title)
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        })
+        header.addView(MaterialButton(this).apply {
+            text = getString(R.string.transcripts_copy_all)
+            textSize = 13f
+            setAllCaps(false)
+            isEnabled = entries.isNotEmpty()
+            setOnClickListener {
+                val all = entries.joinToString("\n\n") { "${it.source}\n${it.translated}" }
+                getSystemService(ClipboardManager::class.java)
+                    .setPrimaryClip(ClipData.newPlainText("UC Dub transcripts", all))
+                Toast.makeText(this@MainActivity, R.string.transcripts_copied, Toast.LENGTH_SHORT).show()
+            }
+        })
+        root.addView(header)
+
+        val scroll = ScrollView(this)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (entries.isEmpty()) {
+            list.addView(TextView(this).apply {
+                text = getString(R.string.transcripts_empty)
+                textSize = 14f
+                setPadding(dp(4), dp(16), dp(4), dp(16))
+            })
+        }
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        entries.forEach { list.addView(transcriptRow(it, timeFormat.format(Date(it.time)))) }
+        scroll.addView(list)
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                resources.displayMetrics.heightPixels * 7 / 10
+            )
+        )
+        sheet.setContentView(root)
+        sheet.show()
+        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+    }
+
+    private fun transcriptRow(entry: TranscriptEntry, time: String): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.toggle_off))
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+        row.addView(TextView(this).apply {
+            text = time
+            textSize = 11f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.toggle_off_text))
+        })
+        if (entry.source.isNotBlank()) {
+            row.addView(TextView(this).apply {
+                text = entry.source
+                textSize = 15f
+                setTextIsSelectable(true)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.toggle_off_text))
+                setPadding(0, dp(4), 0, 0)
+            })
+        }
+        if (entry.translated.isNotBlank()) {
+            row.addView(TextView(this).apply {
+                text = entry.translated
+                textSize = 15f
+                setTextIsSelectable(true)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.brand_primary))
+                setPadding(0, dp(6), 0, 0)
+            })
+        }
+        return row
     }
 
     // endregion

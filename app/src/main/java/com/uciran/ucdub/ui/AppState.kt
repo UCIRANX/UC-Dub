@@ -6,15 +6,11 @@ object AppState {
     @Volatile var peak: Int = 0
     @Volatile var sentChunks: Long = 0
     @Volatile var dubChunks: Long = 0
-    @Volatile var lastSource: String = ""
-    @Volatile var lastTranslated: String = ""
 
     fun reset() {
         connection = "idle"
         peak = 0
         sentChunks = 0
         dubChunks = 0
-        lastSource = ""
-        lastTranslated = ""
     }
 }
