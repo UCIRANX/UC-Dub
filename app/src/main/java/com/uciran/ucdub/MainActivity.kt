@@ -17,17 +17,17 @@ import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.ImageButton
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputEditText
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
@@ -37,13 +37,13 @@ import java.io.File
 class MainActivity : AppCompatActivity() {
 
     private lateinit var settings: SettingsStore
+    private lateinit var keysScroll: ScrollView
     private lateinit var keysList: LinearLayout
     private lateinit var keysEmpty: TextView
     private lateinit var keysCount: TextView
     private lateinit var keyInput: TextInputEditText
-    private lateinit var languageDropdown: MaterialAutoCompleteTextView
+    private lateinit var languageButton: MaterialButton
     private lateinit var outputSelect: MaterialButton
-    private lateinit var duckToggle: MaterialButton
     private lateinit var connection: TextView
     private lateinit var status: TextView
     private lateinit var stats: TextView
@@ -69,7 +69,7 @@ class MainActivity : AppCompatActivity() {
                 val intent = Intent(this, CaptureService::class.java)
                     .putExtra(CaptureService.EXTRA_RESULT_CODE, result.resultCode)
                     .putExtra(CaptureService.EXTRA_DATA, result.data)
-                androidx.core.content.ContextCompat.startForegroundService(this, intent)
+                ContextCompat.startForegroundService(this, intent)
                 status.text = getString(R.string.status_running)
             } else {
                 status.text = getString(R.string.status_denied)
@@ -93,18 +93,13 @@ class MainActivity : AppCompatActivity() {
 
         settings = SettingsStore(this)
         bindViews()
-        setupLanguage()
+        renderLanguage()
         renderOutput()
-        renderDuck()
         renderKeys()
         status.text = getString(R.string.status_idle)
 
+        languageButton.setOnClickListener { chooseLanguage() }
         outputSelect.setOnClickListener { chooseOutput() }
-        duckToggle.setOnClickListener {
-            settings.autoDuck = !settings.autoDuck
-            renderDuck()
-        }
-
         findViewById<MaterialButton>(R.id.add_key).setOnClickListener { addKey() }
         findViewById<MaterialButton>(R.id.telegram).setOnClickListener { openTelegram() }
         findViewById<MaterialButton>(R.id.overlay_permission).setOnClickListener {
@@ -120,13 +115,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindViews() {
+        keysScroll = findViewById(R.id.keys_scroll)
         keysList = findViewById(R.id.keys_list)
         keysEmpty = findViewById(R.id.keys_empty)
         keysCount = findViewById(R.id.key_count)
         keyInput = findViewById(R.id.key_input)
-        languageDropdown = findViewById(R.id.language_dropdown)
+        languageButton = findViewById(R.id.language_button)
         outputSelect = findViewById(R.id.output_select)
-        duckToggle = findViewById(R.id.auto_duck)
         connection = findViewById(R.id.connection)
         status = findViewById(R.id.status)
         stats = findViewById(R.id.stats)
@@ -139,14 +134,69 @@ class MainActivity : AppCompatActivity() {
 
     // region Language and output
 
-    private fun setupLanguage() {
-        val names = codes.map { Languages.displayName(it) }
-        languageDropdown.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, names))
-        val initial = codes.indexOf(settings.targetLanguage).coerceAtLeast(0)
-        languageDropdown.setText(names[initial], false)
-        languageDropdown.setOnItemClickListener { _, _, position, _ ->
-            settings.targetLanguage = codes[position]
+    private fun renderLanguage() {
+        languageButton.text = getString(R.string.language_button, Languages.displayName(settings.targetLanguage))
+    }
+
+    /** Language picker: a bottom sheet with one rounded row per language, the current one highlighted. */
+    private fun chooseLanguage() {
+        val sheet = BottomSheetDialog(this)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(20))
         }
+        root.addView(TextView(this).apply {
+            text = getString(R.string.language_label)
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(4), dp(8), dp(4), dp(12))
+        })
+
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        codes.forEach { code ->
+            val selected = code == settings.targetLanguage
+            list.addView(TextView(this).apply {
+                text = (if (selected) "✓   " else "") + Languages.displayName(code)
+                textSize = 16f
+                setPadding(dp(16), dp(14), dp(16), dp(14))
+                setTextColor(
+                    ContextCompat.getColor(
+                        this@MainActivity,
+                        if (selected) R.color.brand_on_gradient else R.color.toggle_off_text
+                    )
+                )
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(
+                        ContextCompat.getColor(
+                            this@MainActivity,
+                            if (selected) R.color.brand_primary else R.color.toggle_off
+                        )
+                    )
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(8) }
+                setOnClickListener {
+                    settings.targetLanguage = code
+                    renderLanguage()
+                    sheet.dismiss()
+                }
+            })
+        }
+
+        val scroll = ScrollView(this)
+        scroll.addView(list)
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                resources.displayMetrics.heightPixels * 6 / 10
+            )
+        )
+        sheet.setContentView(root)
+        sheet.show()
     }
 
     private fun outputLabel(mode: OutputMode): String = getString(
@@ -175,18 +225,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /** On = dark-filled button, off = light button. */
-    private fun renderDuck() {
-        val on = settings.autoDuck
-        duckToggle.text = getString(if (on) R.string.lower_on else R.string.lower_off)
-        duckToggle.backgroundTintList = ColorStateList.valueOf(
-            ContextCompat.getColor(this, if (on) R.color.brand_primary else R.color.toggle_off)
-        )
-        duckToggle.setTextColor(
-            ContextCompat.getColor(this, if (on) R.color.brand_on_gradient else R.color.toggle_off_text)
-        )
-    }
-
     // endregion
 
     // region Gemini keys
@@ -197,6 +235,11 @@ class MainActivity : AppCompatActivity() {
         keysEmpty.visibility = if (keys.isEmpty()) View.VISIBLE else View.GONE
         keysList.removeAllViews()
         keys.forEachIndexed { index, key -> keysList.addView(keyRow(index, key)) }
+
+        // Show at most two keys; the rest scroll inside the box.
+        val params = keysScroll.layoutParams
+        params.height = if (keys.size > VISIBLE_KEYS) dp(KEY_ROW_DP * VISIBLE_KEYS) else LinearLayout.LayoutParams.WRAP_CONTENT
+        keysScroll.layoutParams = params
     }
 
     private fun keyRow(index: Int, key: String): LinearLayout {
@@ -204,6 +247,10 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(4), dp(2), 0, dp(2))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(KEY_ROW_DP)
+            )
         }
         row.addView(TextView(this).apply {
             text = "${index + 1}.  ${maskKey(key)}"
@@ -362,5 +409,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val ACTIVE_STATES = setOf("connecting", "ready", "reconnecting", "waiting_keys")
+        private const val VISIBLE_KEYS = 2
+        private const val KEY_ROW_DP = 40
     }
 }

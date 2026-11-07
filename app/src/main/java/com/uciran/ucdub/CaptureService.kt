@@ -61,7 +61,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     private var activeKey: String? = null
     private var targetLanguage = "fa"
     private var output = OutputMode.BOTH
-    private var autoDuck = true
+    /** Lower the original audio while dubbing. Always on. */
+    private val autoDuck = true
     private var retryDelayMs = 1000L
     private var lastSource = ""
     private var lastTranslated = ""
@@ -101,7 +102,6 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
         targetLanguage = store.targetLanguage
         output = store.output
-        autoDuck = store.autoDuck
 
         if (store.geminiKeys.isEmpty()) {
             fail("api key missing")

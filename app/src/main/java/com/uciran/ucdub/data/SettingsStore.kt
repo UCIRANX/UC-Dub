@@ -47,7 +47,4 @@ class SettingsStore(context: Context) {
         }.getOrDefault(OutputMode.BOTH)
         set(value) = plain.edit().putString("output", value.name).apply()
 
-    var autoDuck: Boolean
-        get() = plain.getBoolean("auto_duck", true)
-        set(value) = plain.edit().putBoolean("auto_duck", value).apply()
 }
