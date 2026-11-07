@@ -3,7 +3,7 @@
     <color name="brand_primary">#5B4BDB</color>
     <color name="brand_accent">#00B4D8</color>
     <color name="brand_on_gradient">#FFFFFFFF</color>
-    <color name="brand_on_gradient_muted">#CCFFFFFF</color>
-    <color name="pill_bg">#33FFFFFF</color>
-    <color name="level_track">#22000000</color>
+    <color name="brand_on_gradient_muted">#D9FFFFFF</color>
+    <color name="glass_white">#33FFFFFF</color>
+    <color name="telegram_blue">#229ED9</color>
 </resources>

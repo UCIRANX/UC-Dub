@@ -1,33 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">UC Dub</string>
     <string name="channel_name">Audio capture</string>
     <string name="notif_title">UC Dub</string>
     <string name="notif_connecting">Connecting to translation…</string>
     <string name="notif_connected">Live translation is active</string>
-    <string name="start">Start translation</string>
-    <string name="stop">Stop</string>
-    <string name="api_key_hint">Gemini API key</string>
-    <string name="groq_key_hint">Groq API key (precise mode only)</string>
+    <string name="header_subtitle">Live translation and dubbing for your phone</string>
+    <string name="telegram_label">Telegram: @UCIRANIR</string>
+    <string name="telegram_url">https://t.me/uciranir</string>
+
+    <string name="keys_title">Gemini API keys</string>
+    <string name="keys_count">%d keys</string>
+    <string name="keys_hint">Keys are used in order. When one reaches its limit, the next one is used automatically.</string>
+    <string name="keys_empty">No keys yet. Add at least one key to start.</string>
+    <string name="key_input_hint">Paste a Gemini API key</string>
+    <string name="add_key">Add</string>
+    <string name="delete_key">Delete</string>
+    <string name="delete_key_title">Delete this key?</string>
+    <string name="delete_key_message">The key will be removed from this phone.</string>
+    <string name="key_empty">Enter a key first</string>
+    <string name="key_duplicate">This key is already added</string>
+
     <string name="language_label">Target language</string>
-    <string name="voice_label">Dub voice (Tehrani and precise modes)</string>
-    <string name="mode_label">Translation style</string>
-    <string name="mode_fast">Fast translation</string>
-    <string name="mode_tehrani">Tehrani Persian (slightly slower)</string>
-    <string name="mode_precise">Precise mode (Whisper and Gemini, more delay)</string>
+    <string name="language_hint">Language</string>
     <string name="output_label">Output</string>
     <string name="output_both">Dub and subtitles</string>
     <string name="output_dub">Dub only</string>
     <string name="output_subs">Subtitles only</string>
     <string name="auto_duck">Lower original audio while dubbing</string>
-    <string name="consent_text">Audio playing on this phone is sent to Google Gemini while active. In precise mode it is also sent to Groq for speech recognition. I agree.</string>
+
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
     <string name="overlay_permission">Allow subtitles overlay</string>
-    <string name="level_label">Input audio level</string>
-    <string name="status_idle">Idle</string>
+
+    <string name="status_idle">Ready</string>
     <string name="status_running">Translating device audio…</string>
     <string name="status_denied">Screen capture permission was denied</string>
     <string name="status_no_mic">Audio recording permission is required</string>
-    <string name="status_no_key">Enter your Gemini API key</string>
-    <string name="status_no_groq">Enter your Groq API key for precise mode</string>
-    <string name="status_no_consent">Tick the consent box to start</string>
-    <string name="header_subtitle">Live translation and dubbing for your phone</string>
+    <string name="status_no_key">Add at least one Gemini API key</string>
+
+    <string name="conn_idle">Idle</string>
+    <string name="conn_connecting">Connecting</string>
+    <string name="conn_ready">Connected</string>
+    <string name="conn_reconnecting">Reconnecting</string>
+    <string name="conn_waiting">Waiting</string>
+    <string name="conn_stopped">Stopped</string>
+    <string name="conn_error">Connection lost</string>
+    <string name="hint_no_sound">No sound is coming from the device right now.</string>
+    <string name="hint_waiting_translation">Audio is being sent. Waiting for the translation…</string>
+    <string name="hint_waiting_keys">All keys are temporarily limited. Translation resumes automatically.</string>
+
+    <string name="details_connection">Connection</string>
+    <string name="details_sent">Audio packets sent</string>
+    <string name="details_dub">Dub packets received</string>
+    <string name="details_source">Original</string>
+    <string name="details_translated">Translation</string>
 </resources>

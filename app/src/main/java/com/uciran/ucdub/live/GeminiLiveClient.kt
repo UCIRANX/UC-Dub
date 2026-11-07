@@ -1,7 +1,6 @@
 package com.uciran.ucdub.live
 
 import android.util.Base64
-import com.uciran.ucdub.data.TranslationMode
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -13,24 +12,35 @@ import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-/**
- * Client for the Gemini Live BidiGenerateContent WebSocket.
- * FAST uses the translation model; TEHRANI uses the voice model with a Tehrani-style instruction.
- */
+/** Why a session ended, so the service knows whether to retry, switch key, or just reconnect. */
+enum class FailureKind {
+    /** Connection problem: retry the same key with backoff. */
+    NETWORK,
+
+    /** The key hit its quota or rate limit: switch to another key. */
+    QUOTA,
+
+    /** The key was rejected: switch to another key and keep this one out of use for longer. */
+    AUTH,
+
+    /** The server asked us to reconnect (for example goAway): reconnect right away. */
+    RECONNECT
+}
+
+/** Client for the Gemini Live translation WebSocket (BidiGenerateContent). */
 class GeminiLiveClient(
     private val apiKey: String,
-    private val mode: TranslationMode,
-    private val voice: String,
     private val targetLanguage: String,
     private val listener: Listener
 ) {
     interface Listener {
         fun onReady()
         fun onDubAudio(pcm24k: ByteArray)
+
         /** source = true for the spoken (original) text, false for the translated text. */
         fun onTranscript(source: Boolean, text: String, finished: Boolean)
         fun onInterrupted()
-        fun onClosed(reason: String, recoverable: Boolean)
+        fun onClosed(reason: String, kind: FailureKind)
     }
 
     private val http = OkHttpClient.Builder()
@@ -68,11 +78,13 @@ class GeminiLiveClient(
                 }
 
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                    finish(t.message ?: "connection_failed", true)
+                    val message = t.message ?: "connection_failed"
+                    finish(message, classify(message, response?.code))
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                    finish(reason.ifBlank { "closed_$code" }, true)
+                    val text = reason.ifBlank { "closed_$code" }
+                    finish(text, classify(text))
                 }
             }
         )
@@ -113,14 +125,14 @@ class GeminiLiveClient(
         msg.optJSONObject("error")?.let { err ->
             val message = err.optString("message", "gemini_error")
             val s = socket
-            finish(message, !message.contains("API key", ignoreCase = true))
+            finish(message, classify(message))
             s?.close(1000, "error")
             return
         }
 
         if (msg.has("goAway")) {
             val s = socket
-            finish("goAway", true)
+            finish("goAway", FailureKind.RECONNECT)
             s?.close(1000, "renew")
             return
         }
@@ -161,61 +173,32 @@ class GeminiLiveClient(
         for (chunk in chunks) s.send(audioJson(chunk).toString())
     }
 
-    private fun finish(reason: String, recoverable: Boolean) {
+    private fun finish(reason: String, kind: FailureKind) {
         if (closing) return
         closing = true
         ready = false
         socket = null
         synchronized(lock) { pending.clear() }
-        listener.onClosed(reason, recoverable)
+        listener.onClosed(reason, kind)
     }
 
     private fun setupJson(): JSONObject {
-        val body = if (mode == TranslationMode.TEHRANI) {
-            JSONObject()
-                .put("model", "models/$VOICE_MODEL")
-                .put("inputAudioTranscription", JSONObject())
-                .put("outputAudioTranscription", JSONObject())
-                .put(
-                    "generationConfig",
-                    JSONObject()
-                        .put("responseModalities", JSONArray().put("AUDIO"))
-                        .put(
-                            "speechConfig",
-                            JSONObject().put(
-                                "voiceConfig",
-                                JSONObject().put(
-                                    "prebuiltVoiceConfig",
-                                    JSONObject().put("voiceName", voice)
-                                )
-                            )
-                        )
-                )
-                .put(
-                    "systemInstruction",
-                    JSONObject().put(
-                        "parts",
-                        JSONArray().put(JSONObject().put("text", TEHRANI_INSTRUCTION))
+        val setup = JSONObject()
+            .put("model", "models/$MODEL")
+            .put("inputAudioTranscription", JSONObject())
+            .put("outputAudioTranscription", JSONObject())
+            .put(
+                "generationConfig",
+                JSONObject()
+                    .put("responseModalities", JSONArray().put("AUDIO"))
+                    .put(
+                        "translationConfig",
+                        JSONObject()
+                            .put("targetLanguageCode", targetLanguage)
+                            .put("echoTargetLanguage", false)
                     )
-                )
-        } else {
-            JSONObject()
-                .put("model", "models/$MODEL")
-                .put("inputAudioTranscription", JSONObject())
-                .put("outputAudioTranscription", JSONObject())
-                .put(
-                    "generationConfig",
-                    JSONObject()
-                        .put("responseModalities", JSONArray().put("AUDIO"))
-                        .put(
-                            "translationConfig",
-                            JSONObject()
-                                .put("targetLanguageCode", targetLanguage)
-                                .put("echoTargetLanguage", false)
-                        )
-                )
-        }
-        return JSONObject().put("setup", body)
+            )
+        return JSONObject().put("setup", setup)
     }
 
     private fun audioJson(pcm: ByteArray): JSONObject = JSONObject().put(
@@ -230,17 +213,22 @@ class GeminiLiveClient(
 
     companion object {
         const val MODEL = "gemini-3.5-live-translate-preview"
-        const val VOICE_MODEL = "gemini-3.8-live"
-        const val VOICE_NAME = "Kore"
         const val ENDPOINT =
             "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
         private const val MAX_PENDING = 60
 
-        private const val TEHRANI_INSTRUCTION =
-            "You are a live interpreter. Listen to whatever is being said, in any language, and speak only " +
-                "its translation into Persian as it is spoken colloquially in Tehran. Use everyday Tehrani " +
-                "Persian wording and rhythm (for example: الان، اینه، داره، می‌خوام، نمی‌شه، خیلی)، " +
-                "natural short sentences, and no formal literary style. Keep names, brands and numbers as they are. " +
-                "Never answer, explain or comment on the speech; only interpret it. Speak nothing else."
+        /** Maps an error text (and optional HTTP status) to what the service should do next. */
+        fun classify(text: String, httpCode: Int? = null): FailureKind {
+            if (httpCode == 401 || httpCode == 403) return FailureKind.AUTH
+            if (httpCode == 429) return FailureKind.QUOTA
+            val t = text.lowercase()
+            return when {
+                listOf("quota", "resource_exhausted", "rate limit", "rate_limit", "429", "billing")
+                    .any { t.contains(it) } -> FailureKind.QUOTA
+                listOf("api key", "api_key", "not valid", "permission", "unauthenticated", "401", "403")
+                    .any { t.contains(it) } -> FailureKind.AUTH
+                else -> FailureKind.NETWORK
+            }
+        }
     }
 }

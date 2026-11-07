@@ -1,33 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">UC Dub</string>
     <string name="channel_name">ضبط صدا</string>
     <string name="notif_title">UC Dub</string>
     <string name="notif_connecting">در حال اتصال به ترجمه…</string>
     <string name="notif_connected">ترجمه زنده فعال است</string>
-    <string name="start">شروع ترجمه</string>
-    <string name="stop">توقف</string>
-    <string name="api_key_hint">کلید API جمینای</string>
-    <string name="groq_key_hint">کلید API گروک (فقط حالت دقیق)</string>
+    <string name="header_subtitle">ترجمه و دوبله زنده صدای گوشی</string>
+    <string name="telegram_label">Telegram: @UCIRANIR</string>
+    <string name="telegram_url">https://t.me/uciranir</string>
+
+    <string name="keys_title">کلیدهای API جمینای</string>
+    <string name="keys_count">%d کلید</string>
+    <string name="keys_hint">کلیدها به ترتیب استفاده می‌شوند. وقتی یکی به محدودیت برسد، کلید بعدی خودکار جایگزین می‌شود.</string>
+    <string name="keys_empty">هنوز کلیدی ثبت نشده. برای شروع حداقل یک کلید اضافه کنید.</string>
+    <string name="key_input_hint">کلید API جمینای را وارد کنید</string>
+    <string name="add_key">افزودن</string>
+    <string name="delete_key">حذف</string>
+    <string name="delete_key_title">این کلید حذف شود؟</string>
+    <string name="delete_key_message">این کلید از این گوشی پاک می‌شود.</string>
+    <string name="key_empty">ابتدا کلید را وارد کنید</string>
+    <string name="key_duplicate">این کلید قبلاً اضافه شده</string>
+
     <string name="language_label">زبان مقصد</string>
-    <string name="voice_label">صدای دوبله (فارسی تهرانی و حالت دقیق)</string>
-    <string name="mode_label">نوع ترجمه</string>
-    <string name="mode_fast">ترجمه سریع</string>
-    <string name="mode_tehrani">فارسی تهرانی (کمی کندتر)</string>
-    <string name="mode_precise">حالت دقیق (Whisper و Gemini، تأخیر بیشتر)</string>
+    <string name="language_hint">زبان</string>
     <string name="output_label">خروجی</string>
     <string name="output_both">دوبله و زیرنویس</string>
     <string name="output_dub">فقط دوبله</string>
     <string name="output_subs">فقط زیرنویس</string>
     <string name="auto_duck">کاهش خودکار صدای اصلی هنگام دوبله</string>
-    <string name="consent_text">صدای در حال پخش در این گوشی، تا زمان فعال بودن ترجمه، برای Google Gemini فرستاده می‌شود. در حالت دقیق برای تشخیص گفتار به Groq هم فرستاده می‌شود. موافقم.</string>
+
+    <string name="start">شروع</string>
+    <string name="stop">توقف</string>
     <string name="overlay_permission">اجازه نمایش زیرنویس</string>
-    <string name="level_label">سطح صدای ورودی</string>
+
     <string name="status_idle">آماده</string>
     <string name="status_running">در حال ترجمه صدای گوشی…</string>
     <string name="status_denied">اجازه ضبط صفحه داده نشد</string>
     <string name="status_no_mic">اجازه ضبط صدا لازم است</string>
-    <string name="status_no_key">کلید API جمینای را وارد کنید</string>
-    <string name="status_no_groq">کلید Groq را برای حالت دقیق وارد کنید</string>
-    <string name="status_no_consent">برای شروع، تیک موافقت را بزنید</string>
-    <string name="header_subtitle">ترجمه و دوبله زنده صدای گوشی</string>
+    <string name="status_no_key">حداقل یک کلید جمینای اضافه کنید</string>
+
+    <string name="conn_idle">بیکار</string>
+    <string name="conn_connecting">در حال اتصال</string>
+    <string name="conn_ready">متصل</string>
+    <string name="conn_reconnecting">در حال اتصال مجدد</string>
+    <string name="conn_waiting">در انتظار</string>
+    <string name="conn_stopped">متوقف شده</string>
+    <string name="conn_error">اتصال قطع شد</string>
+    <string name="hint_no_sound">در حال حاضر صدایی از گوشی گرفته نمی‌شود.</string>
+    <string name="hint_waiting_translation">صدا ارسال می‌شود. منتظر ترجمه هستیم…</string>
+    <string name="hint_waiting_keys">همه کلیدها موقتاً محدود شده‌اند. ترجمه خودکار ادامه پیدا می‌کند.</string>
+
+    <string name="details_connection">وضعیت</string>
+    <string name="details_sent">بسته‌های صوتی ارسالی</string>
+    <string name="details_dub">بسته‌های دوبله دریافتی</string>
+    <string name="details_source">متن اصلی</string>
+    <string name="details_translated">ترجمه</string>
 </resources>

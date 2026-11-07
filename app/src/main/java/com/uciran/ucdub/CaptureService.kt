@@ -25,17 +25,17 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.uciran.ucdub.audio.Downsampler
 import com.uciran.ucdub.audio.DubPlayer
+import com.uciran.ucdub.data.ApiKeyPool
 import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
-import com.uciran.ucdub.data.TranslationMode
+import com.uciran.ucdub.live.FailureKind
 import com.uciran.ucdub.live.GeminiLiveClient
-import com.uciran.ucdub.live.PrecisePipeline
 import com.uciran.ucdub.ui.AppState
 import com.uciran.ucdub.ui.SubtitleOverlay
 
 /**
- * Captures device audio (AudioPlaybackCapture) and feeds it to the selected engine:
- * Gemini Live (fast / Tehrani) or the precise pipeline. Plays the dub and shows subtitles.
+ * Captures device audio (AudioPlaybackCapture), streams it to Gemini Live, plays the dub
+ * and shows subtitles. When a key runs out of quota, the next key is used automatically.
  */
 class CaptureService : Service(), GeminiLiveClient.Listener {
 
@@ -43,27 +43,23 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     private val downsampler = Downsampler()
     private val reconnectTask = Runnable { connectLive() }
 
+    private lateinit var store: SettingsStore
+    private lateinit var pool: ApiKeyPool
+
     private var projection: MediaProjection? = null
     private var audioRecord: AudioRecord? = null
     private var captureThread: Thread? = null
     private var dub: DubPlayer? = null
     private var overlay: SubtitleOverlay? = null
-    private var settings: SettingsStore? = null
 
     @Volatile
     private var client: GeminiLiveClient? = null
 
     @Volatile
-    private var precise: PrecisePipeline? = null
-
-    @Volatile
     private var running = false
 
-    private var apiKey = ""
-    private var groqKey = ""
-    private var voice = "Kore"
+    private var activeKey: String? = null
     private var targetLanguage = "fa"
-    private var mode = TranslationMode.FAST
     private var output = OutputMode.BOTH
     private var autoDuck = true
     private var retryDelayMs = 1000L
@@ -72,7 +68,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onCreate() {
         super.onCreate()
-        settings = SettingsStore(this)
+        store = SettingsStore(this)
+        pool = ApiKeyPool(store)
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -102,21 +99,12 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
             return START_NOT_STICKY
         }
 
-        val prefs = settings ?: SettingsStore(this).also { settings = it }
-        apiKey = prefs.apiKey
-        groqKey = prefs.groqKey
-        voice = prefs.voice
-        targetLanguage = prefs.targetLanguage
-        mode = prefs.mode
-        output = prefs.output
-        autoDuck = prefs.autoDuck
+        targetLanguage = store.targetLanguage
+        output = store.output
+        autoDuck = store.autoDuck
 
-        if (apiKey.isBlank()) {
+        if (store.geminiKeys.isEmpty()) {
             fail("api key missing")
-            return START_NOT_STICKY
-        }
-        if (mode == TranslationMode.PRECISE && groqKey.isBlank()) {
-            fail("groq key missing")
             return START_NOT_STICKY
         }
 
@@ -130,9 +118,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         }, null)
 
         running = true
-        // Fast mode drops old speech to stay real-time; the other modes keep it so sentences are not cut.
-        val queueLimit = if (mode == TranslationMode.FAST) 50 else 400
-        dub = DubPlayer(this, autoDuck, queueLimit)
+        dub = DubPlayer(this, autoDuck, DUB_QUEUE_LIMIT)
         if (output != OutputMode.DUB && Settings.canDrawOverlays(this)) {
             overlay = SubtitleOverlay(this).also { it.show() }
         }
@@ -141,7 +127,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         return START_NOT_STICKY
     }
 
-    // region Engines
+    // region Engine
 
     private fun connectLive() {
         if (!running) return
@@ -149,15 +135,17 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         client?.stop()
         client = null
 
-        if (mode == TranslationMode.PRECISE) {
-            precise?.stop()
-            precise = PrecisePipeline(apiKey, groqKey, targetLanguage, voice, this)
-            onReady()
+        val key = pool.current()
+        if (key == null) {
+            // Every key is cooling down. Try again when the first one is usable.
+            AppState.connection = "waiting_keys"
+            main.postDelayed(reconnectTask, pool.waitMs().coerceAtLeast(1000L))
             return
         }
 
+        activeKey = key
         AppState.connection = "connecting"
-        client = GeminiLiveClient(apiKey, mode, targetLanguage, voice, this).also { it.connect() }
+        client = GeminiLiveClient(key, targetLanguage, this).also { it.connect() }
     }
 
     override fun onReady() {
@@ -172,8 +160,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     }
 
     override fun onInterrupted() {
-        // Tehrani and precise modes must finish the sentence; only fast mode cuts the old dub.
-        if (mode == TranslationMode.FAST) dub?.clear()
+        dub?.clear()
     }
 
     override fun onTranscript(source: Boolean, text: String, finished: Boolean) {
@@ -186,16 +173,34 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         main.post { overlay?.update(s, t) }
     }
 
-    override fun onClosed(reason: String, recoverable: Boolean) {
-        Log.w(TAG, "Session closed: $reason (recoverable=$recoverable)")
+    override fun onClosed(reason: String, kind: FailureKind) {
+        Log.w(TAG, "Session closed: $reason ($kind)")
         if (!running) return
-        if (recoverable) {
-            AppState.connection = "closed: $reason"
-            main.postDelayed(reconnectTask, retryDelayMs)
-            retryDelayMs = (retryDelayMs * 2).coerceAtMost(15_000L)
-        } else {
-            main.post { stopAll("closed: $reason") }
+        when (kind) {
+            FailureKind.QUOTA -> {
+                markActiveKey(COOLDOWN_QUOTA_MS)
+                switchKeySoon()
+            }
+            FailureKind.AUTH -> {
+                markActiveKey(COOLDOWN_AUTH_MS)
+                switchKeySoon()
+            }
+            FailureKind.RECONNECT -> main.postDelayed(reconnectTask, 300L)
+            FailureKind.NETWORK -> {
+                AppState.connection = "reconnecting"
+                main.postDelayed(reconnectTask, retryDelayMs)
+                retryDelayMs = (retryDelayMs * 2).coerceAtMost(15_000L)
+            }
         }
+    }
+
+    private fun markActiveKey(durationMs: Long) {
+        activeKey?.let { pool.markExhausted(it, durationMs) }
+    }
+
+    private fun switchKeySoon() {
+        retryDelayMs = 1000L
+        main.postDelayed(reconnectTask, 300L)
     }
 
     // endregion
@@ -248,8 +253,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
                 AppState.peak = peakOf(buffer, read)
                 val chunk = downsampler.process(buffer, read)
                 if (chunk.isNotEmpty()) {
-                    val p = precise
-                    if (p != null) p.push(chunk) else client?.sendAudio(chunk)
+                    client?.sendAudio(chunk)
                     AppState.sentChunks++
                 }
             }
@@ -278,8 +282,6 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         audioRecord = null
         client?.stop()
         client = null
-        precise?.stop()
-        precise = null
         dub?.release()
         dub = null
         overlay?.hide()
@@ -342,6 +344,9 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         private const val CHANNEL_ID = "capture"
         private const val NOTIF_ID = 1
         private const val CAPTURE_RATE = 48000
+        private const val DUB_QUEUE_LIMIT = 50
+        private const val COOLDOWN_QUOTA_MS = 60 * 60 * 1000L
+        private const val COOLDOWN_AUTH_MS = 24 * 60 * 60 * 1000L
         private const val TAG = "UCDub"
 
         /** Loudest absolute sample value in a PCM16 buffer. */
