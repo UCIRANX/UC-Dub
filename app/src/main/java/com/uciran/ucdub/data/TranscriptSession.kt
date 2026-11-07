@@ -1,7 +1,9 @@
 package com.uciran.ucdub.data
 
 /**
- * Builds sentences from the streamed transcript pieces and saves each finished pair.
+ * Builds sentence pairs from the streamed transcript pieces.
+ * Every change is written to the store immediately. A pair is finished when both sides
+ * report it finished, when the next sentence starts, or after a short pause.
  * Pieces may arrive as increments or as the full text so far; both are handled.
  */
 class TranscriptSession(private val store: TranscriptStore) {
@@ -9,6 +11,8 @@ class TranscriptSession(private val store: TranscriptStore) {
     private val translated = StringBuilder()
     private var sourceDone = false
     private var translatedDone = false
+    private var startedAt = 0L
+    private var lastUpdate = 0L
     private val recent = ArrayDeque<TranscriptEntry>()
 
     @Synchronized
@@ -17,31 +21,38 @@ class TranscriptSession(private val store: TranscriptStore) {
         translated.clear()
         sourceDone = false
         translatedDone = false
+        startedAt = 0L
+        lastUpdate = 0L
         recent.clear()
     }
 
     @Synchronized
     fun onSource(text: String, finished: Boolean) {
-        // A new spoken sentence started before the previous translation finished: save what we have.
-        if (sourceDone && text.isNotBlank()) commit()
-        merge(source, text)
+        if (text.isNotBlank()) {
+            if (sourceDone || isIdle()) commit()
+            merge(source, text)
+            touch()
+        }
         if (finished) sourceDone = true
-        if (sourceDone && translatedDone) commit()
+        afterUpdate()
     }
 
     @Synchronized
     fun onTranslated(text: String, finished: Boolean) {
-        if (translatedDone && text.isNotBlank()) commit()
-        merge(translated, text)
+        if (text.isNotBlank()) {
+            if (translatedDone || isIdle()) commit()
+            merge(translated, text)
+            touch()
+        }
         if (finished) translatedDone = true
-        if (sourceDone && translatedDone) commit()
+        afterUpdate()
     }
 
     /** Saves whatever is still in progress (called when the session stops). */
     @Synchronized
     fun flush() = commit()
 
-    /** Recent saved pairs followed by the sentence currently being spoken. */
+    /** Recent finished pairs followed by the sentence currently being spoken. */
     @Synchronized
     fun snapshot(): List<TranscriptEntry> {
         val list = recent.toMutableList()
@@ -49,11 +60,24 @@ class TranscriptSession(private val store: TranscriptStore) {
         return list
     }
 
+    private fun isIdle(): Boolean =
+        pending() != null && System.currentTimeMillis() - lastUpdate > IDLE_MS
+
+    private fun touch() {
+        val now = System.currentTimeMillis()
+        if (startedAt == 0L) startedAt = now
+        lastUpdate = now
+    }
+
+    private fun afterUpdate() {
+        if (sourceDone && translatedDone) commit() else store.saveCurrent(pending())
+    }
+
     private fun pending(): TranscriptEntry? {
         val s = source.toString().trim()
         val t = translated.toString().trim()
-        return if (s.isEmpty() && t.isEmpty()) null
-        else TranscriptEntry(s, t, System.currentTimeMillis())
+        if (s.isEmpty() && t.isEmpty()) return null
+        return TranscriptEntry(s, t, if (startedAt == 0L) System.currentTimeMillis() else startedAt)
     }
 
     private fun commit() {
@@ -62,14 +86,15 @@ class TranscriptSession(private val store: TranscriptStore) {
             recent.addLast(entry)
             while (recent.size > RECENT) recent.removeFirst()
         }
+        store.saveCurrent(null)
         source.clear()
         translated.clear()
         sourceDone = false
         translatedDone = false
+        startedAt = 0L
     }
 
     private fun merge(buf: StringBuilder, text: String) {
-        if (text.isEmpty()) return
         val current = buf.toString()
         if (current.isNotEmpty() && text.startsWith(current)) {
             buf.setLength(0)
@@ -81,5 +106,6 @@ class TranscriptSession(private val store: TranscriptStore) {
 
     companion object {
         private const val RECENT = 30
+        private const val IDLE_MS = 2500L
     }
 }

@@ -388,9 +388,9 @@ class MainActivity : AppCompatActivity() {
 
     // region Transcripts
 
-    /** Every saved sentence pair of the current session, with copy-all and text selection. */
+    /** Saved sentence pairs. The list refreshes while the window is open, so new text appears live. */
     private fun showTranscripts() {
-        val entries = TranscriptStore(this).readAll()
+        val store = TranscriptStore(this)
         val sheet = BottomSheetDialog(this)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -411,8 +411,9 @@ class MainActivity : AppCompatActivity() {
             text = getString(R.string.transcripts_copy_all)
             textSize = 13f
             setAllCaps(false)
-            isEnabled = entries.isNotEmpty()
             setOnClickListener {
+                val entries = store.readAll()
+                if (entries.isEmpty()) return@setOnClickListener
                 val all = entries.joinToString("\n\n") { "${it.source}\n${it.translated}" }
                 getSystemService(ClipboardManager::class.java)
                     .setPrimaryClip(ClipData.newPlainText("UC Dub transcripts", all))
@@ -423,15 +424,6 @@ class MainActivity : AppCompatActivity() {
 
         val scroll = ScrollView(this)
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        if (entries.isEmpty()) {
-            list.addView(TextView(this).apply {
-                text = getString(R.string.transcripts_empty)
-                textSize = 14f
-                setPadding(dp(4), dp(16), dp(4), dp(16))
-            })
-        }
-        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        entries.forEach { list.addView(transcriptRow(it, timeFormat.format(Date(it.time)))) }
         scroll.addView(list)
         root.addView(
             scroll,
@@ -440,9 +432,35 @@ class MainActivity : AppCompatActivity() {
                 resources.displayMetrics.heightPixels * 7 / 10
             )
         )
+
+        val handler = Handler(Looper.getMainLooper())
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+        var shown = ""
+        val refresh = object : Runnable {
+            override fun run() {
+                val entries = store.readAll()
+                val signature = entries.joinToString("\u0001") { "${it.time}|${it.source}|${it.translated}" }
+                if (signature != shown) {
+                    val atBottom = scroll.getChildAt(0)?.let { scroll.scrollY + scroll.height >= it.height - dp(40) } ?: true
+                    shown = signature
+                    list.removeAllViews()
+                    if (entries.isEmpty()) {
+                        list.addView(TextView(this@MainActivity).apply {
+                            text = getString(R.string.transcripts_empty)
+                            textSize = 14f
+                            setPadding(dp(4), dp(16), dp(4), dp(16))
+                        })
+                    }
+                    entries.forEach { list.addView(transcriptRow(it, timeFormat.format(Date(it.time)))) }
+                    if (atBottom) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                }
+                handler.postDelayed(this, 700)
+            }
+        }
+        sheet.setOnDismissListener { handler.removeCallbacks(refresh) }
         sheet.setContentView(root)
         sheet.show()
-        scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        handler.post(refresh)
     }
 
     private fun transcriptRow(entry: TranscriptEntry, time: String): LinearLayout {
