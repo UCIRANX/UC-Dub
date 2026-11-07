@@ -5,42 +5,38 @@ import android.graphics.PixelFormat
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.text.Layout
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.uciran.ucdub.data.TranscriptEntry
 
 /**
- * Floating subtitles over other apps: one row for the original speech and one for the
- * translation. The band is only as tall as its two rows and shows the newest text.
- * Requires the "display over other apps" permission.
+ * Floating subtitles over other apps. Only the text itself has a translucent background:
+ * one line for the original speech and one for the translation. Each new chunk replaces
+ * the previous one. Requires the "display over other apps" permission.
  */
 class SubtitleOverlay(private val context: Context) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val main = Handler(Looper.getMainLooper())
-    private var band: LinearLayout? = null
-    private var sourceRow: Row? = null
-    private var translatedRow: Row? = null
-
-    private class Row(val scroll: HorizontalScrollView, val text: TextView)
+    private var root: LinearLayout? = null
+    private var sourceView: TextView? = null
+    private var translatedView: TextView? = null
 
     fun canShow(): Boolean = Settings.canDrawOverlays(context)
 
     fun show() {
         main.post {
-            if (band != null || !canShow()) return@post
-            val src = makeRow(0xFFFFFFFF.toInt())
-            val tr = makeRow(0xFFFFE082.toInt())
-            val root = LinearLayout(context).apply {
+            if (root != null || !canShow()) return@post
+            val src = makeText(0xFFFFFFFF.toInt())
+            val tr = makeText(0xFFFFE082.toInt())
+            val container = LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(0xB0000000.toInt())
-                setPadding(dp(16), dp(6), dp(16), dp(6))
-                addView(src.scroll)
-                addView(tr.scroll)
+                gravity = Gravity.CENTER_HORIZONTAL
+                // No background here: empty rows are hidden, so nothing shows until there is text.
+                addView(src)
+                addView(tr)
             }
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -54,60 +50,55 @@ class SubtitleOverlay(private val context: Context) {
                 gravity = Gravity.BOTTOM
                 y = dp(60)
             }
-            windowManager.addView(root, params)
-            band = root
-            sourceRow = src
-            translatedRow = tr
+            windowManager.addView(container, params)
+            root = container
+            sourceView = src
+            translatedView = tr
         }
     }
 
-    /** Shows the newest original and translated text. */
+    /** Shows the latest chunk: the original and its translation. */
     fun update(items: List<TranscriptEntry>) {
         main.post {
-            val src = sourceRow ?: return@post
-            val tr = translatedRow ?: return@post
-            setRow(src, items.lastOrNull { it.source.isNotBlank() }?.source.orEmpty())
-            setRow(tr, items.lastOrNull { it.translated.isNotBlank() }?.translated.orEmpty())
+            val src = sourceView ?: return@post
+            val tr = translatedView ?: return@post
+            val latest = items.lastOrNull()
+            setText(src, latest?.source.orEmpty())
+            setText(tr, latest?.translated.orEmpty())
         }
     }
 
-    private fun makeRow(color: Int): Row {
-        val tv = TextView(context).apply {
-            textSize = 16f
-            setTextColor(color)
-            setSingleLine(true)
-            ellipsize = null
-        }
-        val hsv = HorizontalScrollView(context).apply {
-            isHorizontalScrollBarEnabled = false
-            isVerticalScrollBarEnabled = false
-            isFillViewport = false
-            addView(tv, LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ))
-        }
-        return Row(hsv, tv)
+    private fun makeText(color: Int): TextView = TextView(context).apply {
+        textSize = 16f
+        setTextColor(color)
+        gravity = Gravity.CENTER
+        maxLines = 3
+        setBackgroundColor(0xB0000000.toInt())
+        setPadding(dp(10), dp(4), dp(10), dp(4))
+        visibility = View.GONE
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = dp(2) }
     }
 
-    private fun setRow(row: Row, value: String) {
-        if (row.text.text.toString() == value) return
-        row.text.text = value
-        // Keep the newest words visible: right-to-left text ends on the left, other text on the right.
-        row.scroll.post {
-            val rtl = row.text.layout?.let { it.getParagraphDirection(0) == Layout.DIR_RIGHT_TO_LEFT } ?: false
-            if (rtl) row.scroll.scrollTo(0, 0) else row.scroll.fullScroll(View.FOCUS_RIGHT)
+    private fun setText(view: TextView, value: String) {
+        if (value.isBlank()) {
+            view.visibility = View.GONE
+            return
         }
+        view.text = value
+        view.visibility = View.VISIBLE
     }
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     fun hide() {
         main.post {
-            band?.let { windowManager.removeView(it) }
-            band = null
-            sourceRow = null
-            translatedRow = null
+            root?.let { windowManager.removeView(it) }
+            root = null
+            sourceView = null
+            translatedView = null
         }
     }
 }

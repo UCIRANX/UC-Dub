@@ -136,7 +136,7 @@
 
                 <LinearLayout android:measureWithLargestChild="true"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="64dp"
                     android:layout_marginTop="10dp"
                     android:orientation="horizontal">
 
@@ -144,7 +144,7 @@
                         android:id="@+id/language_button"
                         style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="0dp"
-                        android:layout_height="64dp"
+                        android:layout_height="match_parent"
                         android:minHeight="64dp"
                         android:paddingStart="10dp"
                         android:paddingEnd="10dp"
@@ -157,7 +157,7 @@
                         android:id="@+id/output_select"
                         style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="0dp"
-                        android:layout_height="64dp"
+                        android:layout_height="match_parent"
                         android:minHeight="64dp"
                         android:paddingStart="10dp"
                         android:paddingEnd="10dp"

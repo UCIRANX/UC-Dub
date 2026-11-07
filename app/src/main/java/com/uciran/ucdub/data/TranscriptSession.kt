@@ -32,6 +32,7 @@ class TranscriptSession(private val store: TranscriptStore) {
             if (sourceDone || isIdle()) commit()
             merge(source, text)
             touch()
+            if (source.length > MAX_CHARS) commit()
         }
         if (finished) sourceDone = true
         afterUpdate()
@@ -43,6 +44,7 @@ class TranscriptSession(private val store: TranscriptStore) {
             if (translatedDone || isIdle()) commit()
             merge(translated, text)
             touch()
+            if (translated.length > MAX_CHARS) commit()
         }
         if (finished) translatedDone = true
         afterUpdate()
@@ -107,5 +109,7 @@ class TranscriptSession(private val store: TranscriptStore) {
     companion object {
         private const val RECENT = 30
         private const val IDLE_MS = 2500L
+        /** Longest chunk shown at once; a longer piece is saved and the next chunk replaces it. */
+        private const val MAX_CHARS = 60
     }
 }
