@@ -2,15 +2,17 @@ package com.uciran.ucdub.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
+/**
+ * App settings. Keys are stored in the app's private storage (not readable by other apps,
+ * not included in backups since allowBackup is false).
+ */
 class SettingsStore(context: Context) {
     private val plain: SharedPreferences =
         context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-    private val secure: SharedPreferences = openSecurePrefs(context)
+    private val secure: SharedPreferences =
+        context.getSharedPreferences("keys", Context.MODE_PRIVATE)
 
     var apiKey: String
         get() = secure.getString("api_key", "") ?: ""
@@ -51,43 +53,4 @@ class SettingsStore(context: Context) {
     var autoDuck: Boolean
         get() = plain.getBoolean("auto_duck", true)
         set(value) = plain.edit().putBoolean("auto_duck", value).apply()
-
-    companion object {
-        private const val TAG = "UCDub"
-        private const val SECURE_FILE = "secure_settings"
-        private const val FALLBACK_FILE = "secure_settings_fallback"
-
-        /**
-         * Opens the encrypted store without ever letting an exception escape.
-         * The Keystore key can be lost or incompatible on some devices, which used to crash the app on launch.
-         * If the encrypted file cannot be read, it is reset once. If that still fails, app-private storage is used.
-         */
-        private fun openSecurePrefs(context: Context): SharedPreferences {
-            return try {
-                createEncrypted(context)
-            } catch (first: Throwable) {
-                Log.w(TAG, "Encrypted settings unreadable, resetting", first)
-                runCatching { context.deleteSharedPreferences(SECURE_FILE) }
-                try {
-                    createEncrypted(context)
-                } catch (second: Throwable) {
-                    Log.e(TAG, "Encrypted settings unavailable, using private storage", second)
-                    context.getSharedPreferences(FALLBACK_FILE, Context.MODE_PRIVATE)
-                }
-            }
-        }
-
-        private fun createEncrypted(context: Context): SharedPreferences {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            return EncryptedSharedPreferences.create(
-                context,
-                SECURE_FILE,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        }
-    }
 }
