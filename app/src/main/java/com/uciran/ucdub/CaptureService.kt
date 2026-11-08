@@ -30,6 +30,7 @@ import com.uciran.ucdub.data.OutputMode
 import com.uciran.ucdub.data.SettingsStore
 import com.uciran.ucdub.data.TranscriptSession
 import com.uciran.ucdub.data.TranscriptStore
+import com.uciran.ucdub.live.SpeechLanguage
 import com.uciran.ucdub.live.FailureKind
 import com.uciran.ucdub.live.GeminiLiveClient
 import com.uciran.ucdub.ui.AppState
@@ -55,6 +56,10 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
     private var overlay: SubtitleOverlay? = null
     private var lastSource = ""
     private var lastTranslated = ""
+    private lateinit var speech: SpeechLanguage
+    private var keepCodes: List<String> = emptyList()
+    @Volatile private var speechKept = false
+    private var lastDetectLen = 0
     private lateinit var transcriptStore: TranscriptStore
     private lateinit var transcripts: TranscriptSession
 
@@ -77,6 +82,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         pool = ApiKeyPool(store)
         transcriptStore = TranscriptStore(this)
         transcripts = TranscriptSession(transcriptStore)
+        speech = SpeechLanguage()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -113,6 +119,9 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
         targetLanguage = store.targetLanguage
         output = store.output
+        keepCodes = store.keepLanguages.toList()
+        speechKept = false
+        lastDetectLen = 0
 
         if (store.geminiKeys.isEmpty()) {
             fail("api key missing")
@@ -167,7 +176,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onDubAudio(pcm24k: ByteArray) {
         AppState.dubChunks++
-        if (output != OutputMode.SUBS) dub?.play(pcm24k)
+        if (output != OutputMode.SUBS && !speechKept) dub?.play(pcm24k)
     }
 
     override fun onInterrupted() {
@@ -176,11 +185,34 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onTranscript(source: Boolean, text: String, finished: Boolean) {
         if (source) transcripts.onSource(text, finished) else transcripts.onTranslated(text, finished)
+        if (source) maybeDetectLanguage(transcripts.currentSource(), finished)
         if (text.isBlank()) return
         if (source) lastSource = text else lastTranslated = text
+        if (speechKept) {
+            main.post { overlay?.hideNow() }
+            return
+        }
         val s = lastSource
         val t = lastTranslated
         main.post { overlay?.update(s, t) }
+    }
+
+    /** Checks the spoken language now and then while a sentence grows. */
+    private fun maybeDetectLanguage(current: String, finished: Boolean) {
+        val len = current.length
+        if (len < lastDetectLen) lastDetectLen = 0 // a new sentence started
+        if (len < MIN_DETECT_CHARS) return
+        if (!finished && len - lastDetectLen < DETECT_STEP_CHARS) return
+        lastDetectLen = len
+        main.post {
+            speech.identify(current) { code -> speechKept = isKept(code) }
+        }
+    }
+
+    private fun isKept(code: String): Boolean {
+        val base = code.substringBefore('-').lowercase()
+        if (base == "und") return false
+        return keepCodes.any { it.substringBefore('-').equals(base, ignoreCase = true) }
     }
 
     override fun onClosed(reason: String, kind: FailureKind) {
@@ -307,6 +339,7 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
 
     override fun onDestroy() {
         stopAll()
+        speech.close()
         super.onDestroy()
     }
 
@@ -356,6 +389,8 @@ class CaptureService : Service(), GeminiLiveClient.Listener {
         private const val NOTIF_ID = 1
         private const val CAPTURE_RATE = 48000
         private const val DUB_QUEUE_LIMIT = 50
+        private const val MIN_DETECT_CHARS = 12
+        private const val DETECT_STEP_CHARS = 20
         private const val COOLDOWN_QUOTA_MS = 60 * 60 * 1000L
         private const val COOLDOWN_AUTH_MS = 24 * 60 * 60 * 1000L
         private const val TAG = "UCDub"

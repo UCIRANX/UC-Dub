@@ -60,6 +60,10 @@ class TranscriptSession(private val store: TranscriptStore) {
     }
 
     /** Pieces currently being spoken or translated, plus the saved history is kept in the store. */
+    /** The sentence being spoken right now (for language checks). */
+    @Synchronized
+    fun currentSource(): String = source.toString().trim()
+
     @Synchronized
     fun pendingEntry(): TranscriptEntry? = pending()
 

@@ -41,6 +41,11 @@ class SettingsStore(context: Context) {
         get() = plain.getString("target_lang", "fa") ?: "fa"
         set(value) = plain.edit().putString("target_lang", value).apply()
 
+    /** Languages whose speech stays as the original: not dubbed and not subtitled. Persian is on by default. */
+    var keepLanguages: Set<String>
+        get() = plain.getStringSet("keep_langs", setOf("fa"))?.toSet() ?: setOf("fa")
+        set(value) = plain.edit().putStringSet("keep_langs", value.toSet()).apply()
+
     var output: OutputMode
         get() = runCatching {
             OutputMode.valueOf(plain.getString("output", OutputMode.BOTH.name) ?: OutputMode.BOTH.name)

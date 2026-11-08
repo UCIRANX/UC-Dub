@@ -69,6 +69,14 @@ class SubtitleOverlay(private val context: Context) {
         }
     }
 
+    /** Hides the subtitle right away (used for languages that are not dubbed). */
+    fun hideNow() {
+        main.post {
+            main.removeCallbacks(hideLater)
+            hideTexts()
+        }
+    }
+
     private fun makeText(color: Int): TextView = TextView(context).apply {
         textSize = 16f
         setTextColor(color)

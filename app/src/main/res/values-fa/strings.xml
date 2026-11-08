@@ -37,6 +37,9 @@
     <string name="transcripts_empty">هنوز متنی ذخیره نشده. ترجمه را شروع کنید.</string>
     <string name="transcripts_copy_all">کپی همه</string>
     <string name="transcripts_copied">کپی شد</string>
+    <string name="keep_languages_button">بدون دوبله: %1$s</string>
+    <string name="keep_languages_title">زبان‌های بدون دوبله</string>
+    <string name="keep_languages_none">هیچ</string>
 
     <string name="status_idle">آماده</string>
     <string name="status_running">در حال ترجمه صدای گوشی…</string>

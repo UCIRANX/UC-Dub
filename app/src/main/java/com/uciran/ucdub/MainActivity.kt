@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var keysCount: TextView
     private lateinit var keyInput: TextInputEditText
     private lateinit var languageButton: MaterialButton
+    private lateinit var keepButton: MaterialButton
     private lateinit var outputSelect: MaterialButton
     private lateinit var connection: TextView
     private lateinit var status: TextView
@@ -100,6 +101,7 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         renderLanguage()
         renderOutput()
+        renderKeepLanguages()
         renderKeys()
         status.text = getString(R.string.status_idle)
 
@@ -116,6 +118,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         outputSelect.setOnClickListener { chooseOutput() }
+        keepButton.setOnClickListener { chooseKeepLanguages() }
         findViewById<MaterialButton>(R.id.add_key).setOnClickListener { addKey() }
         findViewById<MaterialButton>(R.id.telegram).setOnClickListener { openTelegram() }
         findViewById<MaterialButton>(R.id.show_transcripts).setOnClickListener { showTranscripts() }
@@ -139,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         keyInput = findViewById(R.id.key_input)
         languageButton = findViewById(R.id.language_button)
         outputSelect = findViewById(R.id.output_select)
+        keepButton = findViewById(R.id.keep_languages)
         connection = findViewById(R.id.connection)
         status = findViewById(R.id.status)
         stats = findViewById(R.id.stats)
@@ -243,6 +247,38 @@ class MainActivity : AppCompatActivity() {
     // endregion
 
     // region Gemini keys
+
+    // region Languages kept as original
+
+    private fun renderKeepLanguages() {
+        val names = settings.keepLanguages.sorted().map { Languages.displayName(it) }
+        keepButton.text = getString(
+            R.string.keep_languages_button,
+            if (names.isEmpty()) getString(R.string.keep_languages_none) else names.joinToString(", ")
+        )
+    }
+
+    /** Multi-select list: checked languages are not dubbed and their subtitles are hidden. */
+    private fun chooseKeepLanguages() {
+        val codes = Languages.CODES
+        val labels = codes.map { Languages.displayName(it) }.toTypedArray()
+        val current = settings.keepLanguages
+        val checked = BooleanArray(codes.size) { codes[it] in current }
+        val selected = current.toMutableSet()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.keep_languages_title)
+            .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                if (isChecked) selected.add(codes[which]) else selected.remove(codes[which])
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                settings.keepLanguages = selected.toSet()
+                renderKeepLanguages()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    // endregion
 
     private fun renderKeys() {
         val keys = settings.geminiKeys
