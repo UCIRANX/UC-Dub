@@ -1,31 +1,98 @@
-# UC Dub (Android)
+<div align="center">
 
-Captures audio playing on the phone (YouTube, Instagram, browsers, any app that allows capture),
-streams it to Gemini Live for near real-time translation, and plays the translated voice
-on top of the original audio, with optional floating subtitles.
+# 🎙️ UC Dub
 
-## How it works
+### ترجمه و دوبلهٔ زندهٔ صدای گوشی، با هوش مصنوعی
 
-1. Audio is captured with AudioPlaybackCapture (Android 10+), then downsampled to 16 kHz mono.
-2. The audio is streamed to Gemini Live (`gemini-3.5-live-translate-preview`).
-3. Translated speech (24 kHz) is played through AudioTrack with the accessibility usage,
-   so the dubbed voice is never captured again.
-4. Source and translated text are shown as floating subtitles when the overlay permission is granted.
+[![Android](https://img.shields.io/badge/Android-10%2B-3DDC84?logo=android&logoColor=white)](#-نیازمندی‌ها)
+[![Gemini Live](https://img.shields.io/badge/Gemini-Live-4285F4?logo=google&logoColor=white)](#-چطور-کار-می‌کند)
+[![Kotlin](https://img.shields.io/badge/Kotlin-100%25-7F52FF?logo=kotlin&logoColor=white)](#)
+[![Telegram](https://img.shields.io/badge/Telegram-@uciranir-26A5E4?logo=telegram&logoColor=white)](https://t.me/uciranir)
 
-## Setup
+**کانال یوسی ایران:** [t.me/uciranir](https://t.me/uciranir)
 
-1. Get a Gemini API key and enter it in the app. It is stored encrypted on the device.
-2. Pick the target language (Persian is the default).
-3. Tick the consent box, then press Start and allow screen/audio capture.
+</div>
 
-## Limits
+---
 
-- Apps that block capture (for example DRM-protected streaming apps) are silent in the capture.
-- Expect roughly 1 to 3 seconds of delay.
-- Original audio is not ducked automatically. Lower the original volume manually if needed.
-- Each session is renewed by the server periodically; the app reconnects automatically.
+## ✨ امکانات
 
-## Build
+- 🔊 **دوبلهٔ زنده**: صدای ترجمه‌شده روی صدای اصلی پخش می‌شود.
+- 📝 **زیرنویس شناور**: متن اصلی و ترجمه روی صفحه، روی هر برنامه‌ای.
+- 🎛️ **سه حالت خروجی**: دوبله و زیرنویس، فقط دوبله، یا فقط زیرنویس.
+- 🌍 **انتخاب زبان مقصد** از بیش از ۱۰۰ زبان (پیش‌فرض: فارسی).
+- 🙊 **زبان‌های بدون دوبله**: زبان‌های دلخواه بدون دوبله و بدون زیرنویس می‌مانند. فارسی به‌طور پیش‌فرض در این لیست است.
+- 🗂️ **بخش متن‌ها**: تمام جمله‌ها ذخیره می‌شوند، همان لحظه در حال نوشته شدن هستند و قابل کپی‌کردن‌اند.
+- 🔑 **چند کلید API**: کلیدها به ترتیب استفاده می‌شوند و کلیدی که به سقف خود برسد، خودکار کنار گذاشته می‌شود.
 
-Pushing to `main` (or uploading the zip to the repository root) runs the GitHub Actions workflow,
-which builds the arm64-v8a, armeabi-v7a and universal release APKs.
+---
+
+## 🧠 چطور کار می‌کند
+
+```
+ صدای گوشی ──► ضبط با AudioPlaybackCapture ──► تبدیل به 16kHz mono
+                                                       │
+                                                       ▼
+ پخش دوبله ◄── AudioTrack (24kHz) ◄── Gemini Live (ترجمهٔ گفتار)
+ زیرنویس   ◄── متن اصلی و ترجمه   ◄──┘
+```
+
+1. صدای در حال پخش روی گوشی با **AudioPlaybackCapture** ضبط می‌شود.
+2. صدا به **Gemini Live** (`gemini-3.5-live-translate-preview`) فرستاده می‌شود.
+3. صدای ترجمه‌شده پخش می‌شود. اگر کاربر تنظیم کرده باشد، صدای اصلی هم موقع دوبله کمی کم می‌شود.
+4. زبان گفتار به‌صورت روی‌گوشی شناسایی می‌شود تا زبان‌های بدون دوبله تشخیص داده شوند.
+
+---
+
+## 📱 نیازمندی‌ها
+
+| مورد | مقدار |
+|------|-------|
+| حداقل اندروید | 10 (API 29) |
+| اندروید هدف | 14 (API 34) |
+| کلید API | کلید Gemini از Google AI Studio |
+| اجازه‌ها | ضبط صدا، اعلان (اندروید ۱۳+)، نمایش روی برنامه‌های دیگر (برای زیرنویس) |
+
+---
+
+## 🚀 نصب و راه‌اندازی
+
+1. **کلید Gemini** را از Google AI Studio بگیرید و در برنامه وارد کنید.
+2. **زبان مقصد** را انتخاب کنید (پیش‌فرض فارسی است).
+3. اگر می‌خواهید **زبانی بدون دوبله** بماند، از دکمه‌ی «بدون دوبله» زبان‌ها را تیک بزنید.
+4. **حالت خروجی** را انتخاب کنید: دوبله و زیرنویس، فقط دوبله یا فقط زیرنویس.
+5. برای زیرنویس، **اجازهٔ نمایش روی برنامه‌های دیگر** را بدهید.
+6. دکمهٔ **Start** را بزنید و دسترسی ضبط صدا را تأیید کنید.
+
+---
+
+## ⚠️ محدودیت‌ها
+
+- برنامه‌هایی که ضبط صدا را مسدود می‌کنند (مثلاً بعضی سرویس‌های استریم با DRM) در ضبط بی‌صدا هستند.
+- تأخیر ترجمه معمولاً بین ۱ تا ۳ ثانیه است.
+- تشخیص زبان برای «زبان‌های بدون دوبله» از کتابخانهٔ ML Kit روی گوشی استفاده می‌کند. روی گوشی‌هایی که سرویس‌های گوگل ندارند ممکن است کار نکند؛ در این صورت همه‌ی گفتارها دوبله می‌شوند.
+- ابتدای هر جمله تا رسیدن به چند کلمه، ممکن است هنوز دوبله شود.
+
+---
+
+## 🛠️ ساخت (Build)
+
+با push به شاخهٔ `main` یا آپلود فایل زیپ پروژه در ریشهٔ ریپو، workflow گیت‌هاب اجرا می‌شود و APKهای زیر ساخته می‌شوند:
+
+- `arm64-v8a`
+- `armeabi-v7a`
+- `universal`
+
+خروجی هر اجرا در بخش **Releases** منتشر می‌شود.
+
+---
+
+## 🤝 ارتباط و پشتیبانی
+
+- 📢 کانال تلگرام: **[@uciranir](https://t.me/uciranir)** ← اخبار، نسخه‌های جدید و پشتیبانی
+
+<div align="center">
+
+**ساخته‌شده با ❤️ توسط [یوسی ایران](https://t.me/uciranir)**
+
+</div>
