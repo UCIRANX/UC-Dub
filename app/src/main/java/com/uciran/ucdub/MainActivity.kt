@@ -28,7 +28,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import androidx.core.widget.NestedScrollView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.uciran.ucdub.data.OutputMode
@@ -205,7 +207,7 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-        val scroll = ScrollView(this)
+        val scroll = NestedScrollView(this)
         scroll.addView(list)
         root.addView(
             scroll,
@@ -215,6 +217,13 @@ class MainActivity : AppCompatActivity() {
             )
         )
         sheet.setContentView(root)
+        sheet.setOnShowListener {
+            sheet.behavior.apply {
+                state = BottomSheetBehavior.STATE_EXPANDED
+                skipCollapsed = true
+                isHideable = false
+            }
+        }
         sheet.show()
     }
 
@@ -458,7 +467,7 @@ class MainActivity : AppCompatActivity() {
         })
         root.addView(header)
 
-        val scroll = ScrollView(this)
+        val scroll = NestedScrollView(this)
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scroll.addView(list)
         root.addView(
@@ -495,6 +504,13 @@ class MainActivity : AppCompatActivity() {
         }
         sheet.setOnDismissListener { handler.removeCallbacks(refresh) }
         sheet.setContentView(root)
+        sheet.setOnShowListener {
+            sheet.behavior.apply {
+                state = BottomSheetBehavior.STATE_EXPANDED
+                skipCollapsed = true
+                isHideable = false
+            }
+        }
         sheet.show()
         handler.post(refresh)
     }
